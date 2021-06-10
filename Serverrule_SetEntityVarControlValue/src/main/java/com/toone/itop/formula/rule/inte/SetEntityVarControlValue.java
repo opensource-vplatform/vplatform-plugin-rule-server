@@ -117,7 +117,7 @@ public class SetEntityVarControlValue implements IRule{
 		String sourceValue = (String) configMap.get(Key_Source);
 		
 		// 如果不存在字段映射信息，按照补充赋值的方式进行
-		Object variableValue = getVariableValue(sourceValue,valueType);
+		Object variableValue = getVariableValue(valueType,sourceValue);
 		context.setContextObject(variableType, variableName, variableValue);
 	}
 	
