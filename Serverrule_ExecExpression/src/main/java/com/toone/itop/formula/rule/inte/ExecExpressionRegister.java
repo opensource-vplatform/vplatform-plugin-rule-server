@@ -28,6 +28,7 @@ public class ExecExpressionRegister implements IRegisterPlugin {
                 .getComponentProfile()
                 .setGroupId(D_GroupId)
                 .setCode(D_COMPONENT)
+                .setVersion("3.3.0")
                 .build();
     }
 

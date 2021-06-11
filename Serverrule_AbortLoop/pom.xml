@@ -6,7 +6,7 @@
 
     <groupId>com.toone.v3.platform</groupId>
     <artifactId>Serverrule_AbortLoop</artifactId>
-    <version>3.3.2-SNAPSHOT</version>
+    <version>3.4.0</version>
     <description>后台规则-中断循环</description> 
 
     <properties>

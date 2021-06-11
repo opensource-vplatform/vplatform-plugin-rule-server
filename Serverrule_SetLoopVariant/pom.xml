@@ -6,7 +6,7 @@
 
     <groupId>com.toone.v3.platform</groupId>
     <artifactId>Serverrule_SetLoopVariant</artifactId>
-    <version>3.4.2-SNAPSHOT</version>
+    <version>3.5.0</version>
     <description>后台规则-新增实体记录</description> 
 
     <properties>

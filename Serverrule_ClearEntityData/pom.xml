@@ -6,7 +6,7 @@
 
     <groupId>com.toone.v3.platform</groupId>
     <artifactId>Serverrule_ClearEntityData</artifactId>
-    <version>3.4.2-SNAPSHOT</version>
+    <version>3.4.0</version>
     <description>后台规则-清除实体数据</description> 
 
     <properties>

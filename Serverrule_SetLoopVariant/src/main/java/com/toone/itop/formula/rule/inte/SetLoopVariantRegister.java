@@ -28,6 +28,7 @@ public class SetLoopVariantRegister implements IRegisterPlugin {
                 .getComponentProfile()
                 .setGroupId(D_GroupId)
                 .setCode(D_COMPONENT)
+                .setVersion("3.5.0")
                 .build();
     }
 

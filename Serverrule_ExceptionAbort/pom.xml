@@ -6,7 +6,7 @@
 
     <groupId>com.toone.v3.platform</groupId>
     <artifactId>Serverrule_ExceptionAbort</artifactId>
-    <version>3.4.0-SNAPSHOT</version>
+    <version>3.4.0</version>
     <description>后台规则-异常中断</description> 
 
     <properties>

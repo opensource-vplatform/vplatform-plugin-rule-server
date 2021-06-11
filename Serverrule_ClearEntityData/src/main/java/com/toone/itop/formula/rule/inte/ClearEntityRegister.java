@@ -28,6 +28,7 @@ public class ClearEntityRegister implements IRegisterPlugin {
                 .getComponentProfile()
                 .setGroupId(D_GroupId)
                 .setCode(D_COMPONENT)
+                .setVersion("3.4.0")
                 .build();
     }
 
