@@ -1,10 +1,10 @@
 @echo off
-echo ====================复制jar包到仓库====================
+set setting=E:\works\toone-maven-settings.xml
+echo ==================maven 浠撳簱璁剧疆(%setting%)====================
 rd /s /Q target
 mkdir target 
 
-echo =================批量打包=================
-set setting=E:\works\toone-maven-settings.xml
+echo =================鎵归噺鎵撳寘=================
 for %%i in (
     Serverrule_AbortLoop
     Serverrule_AbortRule
@@ -15,7 +15,7 @@ for %%i in (
     Serverrule_SetEntityVarControlValue
     Serverrule_SetLoopVariant
 ) do (
-	echo "处理:===%%i ===" 
+	echo "澶勭悊:===%%i ===" 
 	call mvn clean package -f %%i\pom.xml --settings %setting%
     call copy %%i\target\*.jar target\
 )
