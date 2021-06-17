@@ -66,7 +66,8 @@ public class SetLoopVariant implements IRule  {
 					dataObject.set(fieldCode,srcValue);
 				}
 			}else{
-				throw new ConfigException(variableName+"循环变量的值为空");
+				String msg =(obj==null ?"值为空" : "类型不匹配,要求 IDataObject(yindangu),实际返回(" + obj.getClass().getName() + ")");
+				throw new ConfigException(variableName+"-循环变量:" + msg);
 			}
 		}
 	
