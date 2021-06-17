@@ -1,5 +1,6 @@
 package com.toone.itop.formula.rule.inte;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -33,13 +34,13 @@ public class AddTableRecord implements IRule {
 
 	@Override
 	public IRuleOutputVo evaluate(IRuleContext context) {
-		log.info("使用新插件接口..");
 		String numCountFormula = (String) context.getPlatformInput(Param_NumCount);
-		List<Map<String, Object>> mappings = (List<Map<String, Object>>) context.getPlatformInput(Param_Mappings);
-		if (VdsUtils.collection.isEmpty(mappings)) { // 没有配置映射
-			IRuleOutputVo vo = context.newOutputVo();//.setMessage("缺少字段映射").setSuccess(false);
-			return vo;
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> mappings = (List<Map<String, Object>>) context.getPlatformInput(Param_Mappings); 
+		if(mappings==null){ //没有配置映射
+			mappings = Collections.emptyList();
 		}
+		log.info("使用新插件接口..有没有配置映射:" + mappings.size());
 		
 		IFormulaEngine formulaEngine = VDS.getIntance().getFormulaEngine();
 		int count;{
@@ -58,16 +59,7 @@ public class AddTableRecord implements IRule {
 			String tableName = (String) context.getPlatformInput(Param_TableName);
 			String tableScope = (String) context.getPlatformInput(Param_TableScope);
 			ContextVariableType scope = getSourceEntityType(tableScope);
-			Object dv =  context.getVObject().getContextObject(tableName, scope);
-			/*
-			 * if ("ruleSetInput".equals(tableScope)) { dataView = (DataView)
-			 * RuleSetVariableUtil.getInputVariable(context, tableName); } else if
-			 * ("ruleSetVar".equals(tableScope)) { // 上下文变量获取 dataView = (DataView)
-			 * RuleSetVariableUtil.getContextVariable(context, tableName); } else if
-			 * ("ruleSetOutput".equals(tableScope)) { // 输出变量 dataView = (DataView)
-			 * RuleSetVariableUtil.getOutputVariable(context, tableName); }
-			 */
-
+			Object dv =  context.getVObject().getContextObject(tableName, scope); 
 			if (null == dv || !(dv instanceof IDataView)) {
 				throw new ConfigException("找不到需要新增记录的后台实体变量" + tableName);
 	//			throw new BusinessException("找不到需要新增记录的后台实体变量" + tableName);
@@ -77,8 +69,7 @@ public class AddTableRecord implements IRule {
 
 		for (int i = 0; i < count; i++) {
 			IDataObject dataObject = dataView.insertDataObject();
-			// if(mappings!=null){ //前面已经检查了
-			for (Map<String, Object> mapping : mappings) {
+			for (Map<String, Object> mapping : mappings) { 
 				String field = (String) mapping.get("destField");
 				String source = (String) mapping.get("srcField");
 				// 目前只有表达式
@@ -91,8 +82,6 @@ public class AddTableRecord implements IRule {
 
 				dataObject.set(field, fieldValue);
 			}
-			// }
-
 		} 
 		return context.newOutputVo();
 	}
