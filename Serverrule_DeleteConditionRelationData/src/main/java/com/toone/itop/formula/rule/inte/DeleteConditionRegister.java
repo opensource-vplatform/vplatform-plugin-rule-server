@@ -1,5 +1,6 @@
 package com.toone.itop.formula.rule.inte;
- 
+
+
 import java.util.Collections;
 import java.util.List;
 
@@ -11,11 +12,12 @@ import com.yindangu.v3.plugin.vds.reg.api.model.IRuleProfileVo;
 import com.yindangu.v3.plugin.vds.reg.common.RegVds;
 
 /**
- * @Author xugang
- * @Date 2021/5/27 11:23
+ * 删除数据库中的记录
+ * @author jiqj
+ *
  */
-public class EntityRecordRegister implements IRegisterPlugin {
-	public static final String D_COMPONENT="Serverrule_" + EntityRecordRecycling.D_RULE_CODE;
+public class DeleteConditionRegister implements IRegisterPlugin  { // extends AbstractRule4Tree {
+	public static final String D_COMPONENT="Serverrule_" + DeleteConditionRelationData.D_RULE_CODE;
 	/** 插件作者 */
 	public final static String D_Author = "同望科技";
     /** 组织标识 */
@@ -42,10 +44,10 @@ public class EntityRecordRegister implements IRegisterPlugin {
     private IRuleProfileVo getRuleProfile() {
     	IRuleBuilder ruleBuilder = RegVds.getPlugin().getRulePlugin();
     	ruleBuilder.setAuthor(D_Author)
-                .setCode(EntityRecordRecycling.D_RULE_CODE)
-                .setDesc(EntityRecordRecycling.D_RULE_DESC)
-                .setName(EntityRecordRecycling.D_RULE_NAME)
-                .setEntry(EntityRecordRecycling.class)
+                .setCode(DeleteConditionRelationData.D_RULE_CODE)
+                .setDesc(DeleteConditionRelationData.D_RULE_DESC)
+                .setName(DeleteConditionRelationData.D_RULE_NAME)
+                .setEntry(DeleteConditionRelationData.class)
                 ;
 
         return ruleBuilder.build();

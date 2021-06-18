@@ -8,14 +8,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.yindangu.v3.business.VDS;
-import com.yindangu.v3.business.formula.api.IEvalFormulaInterceptor;
-import com.yindangu.v3.business.formula.api.IFormulaEngine;
-import com.yindangu.v3.business.formula.spi.IEvalFormulaCallback;
+import com.yindangu.v3.business.metadata.api.IDAS;
 import com.yindangu.v3.business.metadata.api.IDataObject;
+import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.plugin.business.api.rule.IRule;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
-import com.yindangu.v3.business.plugin.execptions.ConfigException;
+import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
 
 /**
@@ -25,7 +25,7 @@ import com.yindangu.v3.platform.plugin.util.VdsUtils;
  */
 public class DeleteConditionRelationData implements IRule  { // extends AbstractRule4Tree {
 	
-		private static final Logger log = LoggerFactory.getLogger(SetLoopVariant.class); 
+		private static final Logger log = LoggerFactory.getLogger(DeleteConditionRelationData.class); 
 		public static final String D_RULE_NAME = "删除数据库中的记录";
 		public static final String D_RULE_CODE = "DeleteConditionRelationData";
 		public static final String D_RULE_DESC = "删除数据库中选中表的记录，支持条件筛选。\r\n" + 
@@ -42,25 +42,29 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
         if (VdsUtils.collection.isEmpty(dtChileMaps)) {
             return context.newOutputVo();
         }
+
+        //DAS das = IMetaDataFactory.getService().das();
+        IDAS das =  VDS.getIntance().getDas();
         
         //List<Map> treeStructList = inParams.get("treeStruct") != null ? (List<Map>) inParams.get("treeStruct") : null; // 树形结构
-        List<Map> treeStructList =  (List<Map>) context.getPlatformInput(D_dtChileMaps);
+        List<Map> treeStructList =  (List<Map>) context.getPlatformInput(D_treeStruct);
         boolean isTree = !(VdsUtils.collection.isEmpty(treeStructList));
         if (isTree) {
-            DASRuntimeContextFactory.getService().addTreeStructMaps(
-                    treeStructList);
+            //DASRuntimeContextFactory.getService().addTreeStructMaps(treeStructList);
+        	das.getContext().addTreeStructMaps(treeStructList);
         }
-        DAS das = IMetaDataFactory.getService().das();
+        IQueryParse vparse= VDS.getIntance().getVSqlParse(); 
         for (Map dtChileMap : dtChileMaps) {
             String tableName = (String) dtChileMap.get("tableName");
             List<Map> conditions = (List<Map>) dtChileMap.get("dsWhere");
-//            if (CollectionUtils.isEmpty(conditions)) {
-//                das.executeUpdate("delete from " + tableName);
-//                continue;
-//            }
-            SQLBuf sql = QueryConditionUtil
+            /*SQLBuf sql = QueryConditionUtil
                     .parseConditionsNotSupportRuleTemplate(conditions);
             String condSql = sql.getSQL();
+            Map condParams = sql.getParams();
+            */
+    		@SuppressWarnings("deprecation")
+    		ISQLBuf sql = vparse.parseConditionsJson(conditions);
+    		String condSql = sql.getSQL();
             Map condParams = sql.getParams();
             // 拼查询语句
             String countFieldAlias = "countField";
@@ -68,10 +72,11 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
             sbSelect.append(countFieldAlias);
             sbSelect.append(" from ").append(tableName).append(" ");
             String conditionsql = null;
-            if (!StringUtils.isBlank(condSql)) {
+            
+            //if (!StringUtils.isBlank(condSql)) {
+            if (!VdsUtils.string.isEmpty(condSql)) {
                 conditionsql = "where ";
-                if (condSql.startsWith("  and  ")
-                        || condSql.startsWith("  or  ")) {
+                if (condSql.startsWith("  and  ") || condSql.startsWith("  or  ")) {
                     conditionsql = conditionsql + " 1 = 1 ";
                 }
                 conditionsql = conditionsql + condSql;
@@ -79,23 +84,28 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
             }
 
             // 查数据
-            DataView dataview = das.findWithNoFilter(sbSelect.toString(), condParams);
-            List<DataObject> datas = dataview.select();
-            long totalValue = 0;
-            Object total = datas.get(0).get(countFieldAlias);
-            if (total instanceof Number) {
-                totalValue = ((Number) total).longValue();
-            }
+            //DataView dataview = das.findWithNoFilter(sbSelect.toString(), condParams);
+            IDataView dataview = das.findWithNoFilter(sbSelect.toString(), condParams);
+            List<IDataObject> datas = dataview.select();
+            
+            long totalValue =toLong(datas.get(0).get(countFieldAlias)); 
             // 如果有要删的数据，才执行删除
             if (totalValue > 0) {
                 if (isTree) {// 树形结构删除
-                    deleteTreeDatas(tableName, conditionsql, condParams);
+                    deleteTreeDatas(das, tableName, conditionsql, condParams);
                 } else { // 普通表删除
-                    deleteDatas(tableName, conditionsql, condParams);
+                    deleteDatas(das,tableName, conditionsql, condParams);
                 }
-            }
+            } 
         }
-        return true;
+        return context.newOutputVo().put(Boolean.TRUE);
+    }
+    private long toLong(Object total) {
+    	long v =-1;
+    	if (total != null && total instanceof Number) {
+    		v = ((Number) total).longValue(); 
+    	}
+    	return v;
     }
 
     /**
@@ -104,10 +114,10 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
      * @return
      */
     @SuppressWarnings("rawtypes")
-    private void deleteTreeDatas(String tableName, String conditionsql,
+    private void deleteTreeDatas(IDAS das,String tableName, String conditionsql,
             Map paramsMap) {
-        IMetaDataFactory.getService().das()
-                .delete(tableName, conditionsql, paramsMap);
+        //IMetaDataFactory.getService().das().delete(tableName, conditionsql, paramsMap);
+    	das.deleteTree(tableName, conditionsql, paramsMap);
     }
 
     /**
@@ -118,14 +128,14 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
      * @return
      */
     @SuppressWarnings("rawtypes")
-    private void deleteDatas(String queryTableName, String conditionsql,
+    private void deleteDatas(IDAS das,String queryTableName, String conditionsql,
             Map paraMap) {
         StringBuilder sb = new StringBuilder(" delete");
         sb.append(" from ").append(queryTableName).append(" ");
         if (conditionsql != null) {
             sb.append(conditionsql);
         }
-        IMetaDataFactory.getService().das()
-                .executeUpdate(sb.toString(), paraMap);
+        //IMetaDataFactory.getService().das() .executeUpdate(sb.toString(), paraMap);
+        das.executeUpdate(sb.toString(), paraMap);
     }
 }

@@ -16,7 +16,8 @@ import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleVObject;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
-import com.yindangu.v3.platform.plugin.util.VdsUtils;
+import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 /**
  * 实体记录循环处理
  * @author jiqj
@@ -43,13 +44,17 @@ public class EntityRecordRecycling  implements IRule  {
 		//Map<String, Object> inParams = (Map<String, Object>) context.getRuleConfig().getConfigParams();
 		String entityName = (String) context.getPlatformInput(D_TargetEntity);
 		List<Map> mappingItems = (List<Map>) context.getPlatformInput(D_TargetFields);
-		List<Map> condition = (List<Map>) context.getPlatformInput(D_Condition);
+		List<Map> conditions = (List<Map>) context.getPlatformInput(D_Condition);
 		
 		ContextVariableType targetEntityType ;{
 			String t = (String) context.getPlatformInput(D_TargetEntityType);	
 			targetEntityType = ContextVariableType.getInstanceType(t);
 		}
-		SQLBuf sql = QueryConditionUtil.parseConditionsNotSupportRuleTemplate(condition);
+		
+		//SQLBuf sql = QueryConditionUtil.parseConditionsNotSupportRuleTemplate(condition);
+		IQueryParse vparse= VDS.getIntance().getVSqlParse(); 
+		@SuppressWarnings("deprecation")
+		ISQLBuf sql = vparse.parseConditionsJson(conditions);
 		String condSql = sql.getSQL();
 		Map<String, Object> queryParams = sql.getParams();
 		IRuleVObject ruleVObject = context.getVObject();
