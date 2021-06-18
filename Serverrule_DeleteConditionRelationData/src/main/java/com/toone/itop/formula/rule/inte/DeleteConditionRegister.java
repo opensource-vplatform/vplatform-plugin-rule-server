@@ -30,7 +30,7 @@ public class DeleteConditionRegister implements IRegisterPlugin  { // extends Ab
                 .getComponentProfile()
                 .setGroupId(D_GroupId)
                 .setCode(D_COMPONENT)
-                .setVersion("3.4.0")
+                .setVersion("3.5.0")
                 .build();
     }
 

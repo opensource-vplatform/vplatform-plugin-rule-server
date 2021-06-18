@@ -8,18 +8,12 @@ mkdir target
 
 echo =================批量打包=================
 for %%i in (
-    Serverrule_AbortLoop
-    Serverrule_AbortRule
-    Serverrule_AddTableRecord
-    Serverrule_ClearEntityData
-    Serverrule_ExceptionAbort
-    Serverrule_ExecExpression
-    Serverrule_SetEntityVarControlValue
-    Serverrule_SetLoopVariant
+    Serverrule_EntityRecordRecycling
+	Serverrule_DeleteConditionRelationData
 ) do (
-	echo "处理:===%%i ===" 
-	TIMEOUT /T 3
-	call mvn clean package -f %%i\pom.xml --settings %setting%
+	echo "mvn clean package -f %%i\pom.xml --settings %setting%" 
+	TIMEOUT /T 1
+	call mvn clean package -f %%i\pom.xml --settings %setting% >mvn%%i.log
     call copy %%i\target\*.jar target\
 )
    
