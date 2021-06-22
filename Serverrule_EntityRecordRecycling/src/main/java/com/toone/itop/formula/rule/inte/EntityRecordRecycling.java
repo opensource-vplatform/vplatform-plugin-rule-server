@@ -39,6 +39,7 @@ public class EntityRecordRecycling  implements IRule  {
 	private static final String D_FieldValue="FieldValue";
 	private static final String D_TargetField="TargetField";
 	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public IRuleOutputVo evaluate(IRuleContext context) {
 		//Map<String, Object> inParams = (Map<String, Object>) context.getRuleConfig().getConfigParams();
@@ -58,6 +59,8 @@ public class EntityRecordRecycling  implements IRule  {
 		String condSql = sql.getSQL();
 		Map<String, Object> queryParams = sql.getParams();
 		IRuleVObject ruleVObject = context.getVObject();
+		
+		@SuppressWarnings("deprecation")
 		IDataView dataView = (IDataView)ruleVObject.getContextObject(entityName, targetEntityType) ;//(IDataView) getDataViewWithType(context, entityName, TargetEntityType);
 		if (dataView == null) {
 			return context.newOutputVo();

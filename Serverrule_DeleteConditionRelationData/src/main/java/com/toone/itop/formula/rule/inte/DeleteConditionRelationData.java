@@ -68,7 +68,7 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
 	            Map condParams = sql.getParams();
 	            */
 	    		@SuppressWarnings("deprecation")
-	    		ISQLBuf sql = vparse.parseConditionsJson(conditions);
+	    		ISQLBuf sql = vparse.parseConditionsJson(null,conditions,null);
 	    		String condSql = sql.getSQL();
 	            Map condParams = sql.getParams();
 	            // 拼查询语句
