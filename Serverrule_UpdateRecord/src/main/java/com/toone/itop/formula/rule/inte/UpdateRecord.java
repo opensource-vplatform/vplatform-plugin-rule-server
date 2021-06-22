@@ -3,6 +3,7 @@ package com.toone.itop.formula.rule.inte;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -175,7 +176,7 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		return sm;
 	}
 	private Map<String, Map> getTargetNameMapping(List<Map> mappings) {
-		boolean isContainIdColumn = false;
+		//boolean isContainIdColumn = false;
 		Map<String, Map> targetNameMapping = new HashMap<String, Map>(); 
 		for (Map map : mappings) {
 			String destField = (String) map.get(D_ColName);
@@ -184,9 +185,9 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 				if (_destField.indexOf(".") != -1) {
 					_destField = _destField.split("\\.")[1];
 				}
-				if ("id".equalsIgnoreCase(_destField)) {
+				/*if ("id".equalsIgnoreCase(_destField)) {
 					isContainIdColumn = true;
-				} 
+				} */
 				targetNameMapping.put(_destField, map);
 			}
 		} 
@@ -254,7 +255,10 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		
 		boolean isContainIdColumn = isContainIdColumn(targetNameMapping);
 		Map<String, Map<String, Object>> dataListMap = new HashMap<String, Map<String, Object>>();
-		Map<String, String> idPairs = getNewIdAndOldIdPair(isContainIdColumn, dataList, targetNameMapping);
+		Map<String, String> idPairs = Collections.emptyMap();
+		if(isContainIdColumn) {
+			idPairs = getNewIdAndOldIdPair( dataList, targetNameMapping);
+		}
 		List<String> idParams = new ArrayList<String>();
 		for (Map<String, Object> obj : dataList) {
 			String id = (String) obj.get("id");
@@ -371,6 +375,7 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 				try {
 					type = data.getMetaColumnType(code).toString().toLowerCase();
 				} catch (SQLException e) {
+					logger.warn("getMetaColumnType发生SQL错误，忽略",e);
 				}
 				if(!VdsUtils.string.isEmpty(type)){
 					if(charType.indexOf(type)!=-1){
@@ -487,17 +492,15 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 	 * @return
 	 */
 	@SuppressWarnings("rawtypes")
-	private Map<String, String> getNewIdAndOldIdPair(boolean isContainIdColumn, List<Map<String, Object>> dataList,
+	private Map<String, String> getNewIdAndOldIdPair(List<Map<String, Object>> dataList,
 			Map<String, Map> targetNameMapping) {
-		Map<String, String> idPairs = new HashMap<String, String>();
-		if (isContainIdColumn) {
-			for (Map<String, Object> obj : dataList) {
-				if (!VdsUtils.string.isEmpty((String)obj.get("id"))) {
-					String newId = (String) getColumnValue("id", obj, null, targetNameMapping);
-					idPairs.put((String)obj.get("id"), newId);
-				}
+		Map<String, String> idPairs = new HashMap<String, String>(); 
+		for (Map<String, Object> obj : dataList) {
+			if (!VdsUtils.string.isEmpty((String)obj.get("id"))) {
+				String newId = (String) getColumnValue("id", obj, null, targetNameMapping);
+				idPairs.put((String)obj.get("id"), newId);
 			}
-		}
+		} 
 		return idPairs;
 	}
 
@@ -513,28 +516,27 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 	private Object getColumnValue(String columnName, Map<String, Object> data, IDataObject obj, Map<String, Map> targetNameMapping) {
 		Object value = null;
 		Map map = (Map) targetNameMapping.get(columnName);
-		if (map != null) {
-			String operType = (String) map.get("valueType");
-			String srcField = (String) map.get("colValue");
-			// 字段操作
-			ValueType type = ValueType.getInstanceType(operType);
-			switch (type) {
-			case TableField:
-				if(data == null) {
-					value = obj.get(srcField);
-				} else {
-					value = data.get(srcField);					
-				}
-				break;
-			case Expression:
-				IFormulaEngine en = VDS.getIntance().getFormulaEngine();
-				value = en.eval(srcField);//FormulaEngineFactory.getFormulaEngine
-				break;
-			default:
-				throw new ConfigException("不支持的映射中的操作类型！");
-			}
-		} else {
+		if (map == null) {
 			throw new ConfigException("映射信息中不存在该列数据，列名[" + columnName + "]！");
+		}
+		String operType = (String) map.get("valueType");
+		String srcField = (String) map.get("colValue");
+		// 字段操作
+		ValueType type = ValueType.getInstanceType(operType);
+		switch (type) {
+		case TableField:
+			if(data == null) {
+				value = obj.get(srcField);
+			} else {
+				value = data.get(srcField);					
+			}
+			break;
+		case Expression:
+			IFormulaEngine en = VDS.getIntance().getFormulaEngine();
+			value = en.eval(srcField);//FormulaEngineFactory.getFormulaEngine
+			break;
+		default:
+			throw new ConfigException("不支持的映射中的操作类型！");
 		}
 		return value;
 	}
