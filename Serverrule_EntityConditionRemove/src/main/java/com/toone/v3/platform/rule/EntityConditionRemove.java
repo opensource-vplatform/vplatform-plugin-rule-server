@@ -4,6 +4,7 @@ import com.yindangu.v3.business.VDS;
 import com.yindangu.v3.business.metadata.api.IDataObject;
 import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.plugin.business.api.rule.*;
+import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.rule.api.parse.IQueryParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 
@@ -44,6 +45,9 @@ public class EntityConditionRemove implements IRule {
             IRuleVObject ruleVObject = context.getVObject();
 
             ContextVariableType targetEntityType = ContextVariableType.getInstanceType(entityType);
+            if(targetEntityType == null) {
+                throw new ConfigException("[EntityConditionRemove]不支持的变量类型：" + entityType);
+            }
             IDataView dataView = (IDataView)ruleVObject.getContextObject(entityName, targetEntityType);
             if (dataView != null && dataView.getDatas().size()>0) {
                 List<IDataObject> list = dataView.select(condSql, queryParams);
