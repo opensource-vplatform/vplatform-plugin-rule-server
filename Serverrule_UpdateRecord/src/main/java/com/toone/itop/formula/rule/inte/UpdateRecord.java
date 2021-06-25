@@ -43,7 +43,9 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 	
 	private static final String D_treeStruct = "treeStruct";
 	private static final String D_dataSourceMap = "dataSourceMap";
+	private static final String D_ColName="colName",D_DataMap="dataMap";
 	
+	@SuppressWarnings("rawtypes")
 	private boolean initTreeStruct(IDAS das,List<Map> treeStructMapList) {
 		//List<Map> treeStructMapList = (List<Map>) context.getPlatformInput(D_treeStruct);
 		boolean rs = (treeStructMapList!=null && treeStructMapList.size()>0);
@@ -63,19 +65,18 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 			isTreeStruct = initTreeStruct(das, (List<Map>) context.getPlatformInput(D_treeStruct));
 			List<Map> saveDatas = (List<Map>) context.getPlatformInput(D_dataSourceMap);
 			for (Map saveData : saveDatas) {
-				List<Map> mappings = (List<Map>) saveData.get(D_DataMap);
-				Map<String, Map> targetNameMapping = getTargetNameMapping(mappings);
-				LoadMetaVo loadDatas = loadDatabase(context,saveData,mappings,targetNameMapping);
+				LoadMetaVo loadDatas = loadDatabase(context,saveData );
+				Map<String, Map> targetNameMapping = getTargetNameMapping(loadDatas.getMappings());
 
 				Boolean commitType = (Boolean) saveData.get("isSaveAll");
 				if(commitType != null && commitType) {
-					InsertOrUpateTrue(loadDatas,targetNameMapping);
+					insertOrUpateTrue(loadDatas,targetNameMapping);
 					IDataView dataView = loadDatas.getDataView();
 					List<IDataObject> deleteList = dataView.getChanges(DataState.Deleted);
 					deleteLogic(das,loadDatas.getTargetName(), deleteList);
 				}
 				else {
-					InsertOrUpateFalse(loadDatas,targetNameMapping);
+					insertOrUpateFalse(loadDatas,targetNameMapping);
 				}
 			}
 			return context.newOutputVo();
@@ -85,7 +86,6 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 			}
 		}
 	}
-	private static final String D_ColName="colName",D_DataMap="dataMap";
 	
 	/**
 	 * 加载数据库数据
@@ -94,8 +94,8 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 	 * @param mappings 操作方式的映射字段
 	 * @return 返回数据
 	 */
-	private LoadMetaVo loadDatabase(IRuleContext context, Map<String,Object> saveData
-			,List<Map> mappings,Map<String, Map> targetNameMapping) {
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private LoadMetaVo loadDatabase(IRuleContext context, Map<String,Object> saveData) {
 		IRuleVObject ruleVObject = context.getVObject();
 		// 源表 内存表名
 		String sourceName = (String) saveData.get("dataSource");
@@ -115,18 +115,20 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		if (dataView == null) {
 			logger.error("指定的数据源【" + sourceName + "】不存在！");
 			throw new ConfigException("指定的数据源【" + sourceName + "】不存在！");
-		}
-		
+		} 
+
+		List<Map> mappings = (List<Map>) saveData.get(D_DataMap);
 		//boolean isFileAutoMapping = saveData.containsKey("isFieldAutoMapping") && (Boolean)saveData.get("isFieldAutoMapping") ? true : false;
 		Boolean isFileAutoMapping =  (Boolean)saveData.get("isFieldAutoMapping") ;
 		if(isFileAutoMapping!=null && isFileAutoMapping){
 			mappings = handleAutoMappingField(dataView, mappings, sourceName, targetName);
 		}
+		Map<String, Map> targetNameMapping = getTargetNameMapping(mappings);
 		
 		Map<String, Object> defaultMap = new HashMap<String, Object>();
 		Map<String, String> src2Dest = new HashMap<String, String>();
 		Map<String, String> expression = new HashMap<String, String>();
-		IFormulaEngine en = null;
+		IFormulaEngine en = null; 
 		
 		for(Entry<String, Map> entry : targetNameMapping.entrySet()) {
 			Map map = entry.getValue();
@@ -146,7 +148,13 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 					int index = srcField.lastIndexOf(".") + 1;
 					srcField = srcField.substring(index);
 				}
-				src2Dest.put(srcField, key);
+				if(src2Dest.containsKey(srcField)){
+					String value=src2Dest.get(srcField);
+					value=value+","+key;
+					src2Dest.put(srcField, value);
+				}else{
+					src2Dest.put(srcField, key);
+				}
 //				targetObj.set(key, srcObj.get(srcField));
 				break;
 			case Expression:
@@ -172,9 +180,14 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 			}
 		}
 		LoadMetaVo sm = new LoadMetaVo();
-		sm.setSourceName(sourceName).setTargetName(targetName).setDataView(dataView).setDataList(dataList);
+		sm.setSourceName(sourceName)
+			.setTargetName(targetName)
+			.setDataView(dataView)
+			.setDataList(dataList)
+			.setMappings(mappings);;
 		return sm;
 	}
+	@SuppressWarnings("rawtypes")
 	private Map<String, Map> getTargetNameMapping(List<Map> mappings) {
 		//boolean isContainIdColumn = false;
 		Map<String, Map> targetNameMapping = new HashMap<String, Map>(); 
@@ -193,6 +206,7 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		} 
 		return targetNameMapping;
 	}
+	@SuppressWarnings("rawtypes")
 	private boolean isContainIdColumn(Map<String, Map> targetNameMapping) {
 		boolean rs = targetNameMapping.containsKey("_id") 
 				|| targetNameMapping.containsKey("_ID") 
@@ -205,6 +219,9 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		private String sourceName;
 		private String targetName;
 		private List<Map<String, Object>> dataList;  
+		
+		@SuppressWarnings("rawtypes")
+		private List<Map> mappings;
 		private IDataView dataView;
 		
 		public String getSourceName() {
@@ -242,13 +259,25 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 			this.dataView = dataView;
 			return this;
 		}
+		/**操作方式的映射字段*/
+		@SuppressWarnings("rawtypes")
+		public List<Map> getMappings() {
+			return mappings;
+		}
+		/**操作方式的映射字段*/
+		@SuppressWarnings("rawtypes")
+		public LoadMetaVo setMappings(List<Map> mappings) {
+			this.mappings = mappings;
+			return this;
+		}
 	}
 	/** 
 	 * 
 	 * @param datalist 对应 DataView.getDatas
 	 * @param isContainIdColumn 选择“InsertOrUpate方式更新， 提交全部内存表数据
 	 */
-	private void InsertOrUpateTrue(LoadMetaVo loadDataVo,Map<String, Map> targetNameMapping) { 
+	@SuppressWarnings("rawtypes")
+	private void insertOrUpateTrue(LoadMetaVo loadDataVo,Map<String, Map> targetNameMapping) { 
 		List<Map<String, Object>> dataList = loadDataVo.getDataList();
 		String targetName = loadDataVo.getTargetName(),sourceName = loadDataVo.getSourceName();
 		IDAS das = VDS.getIntance().getDas();
@@ -310,7 +339,8 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 	 * @param datalist 对应 DataView.getDatas
 	 * @param isContainIdColumn 选择“InsertOrUpate方式更新， 提交全部内存表数据
 	 */
-	private void InsertOrUpateFalse(LoadMetaVo loadDataVo,Map<String, Map> targetNameMapping)  {// 提交的数据为修改过的数据，即新增、修改、删除的
+	@SuppressWarnings("rawtypes")
+	private void insertOrUpateFalse(LoadMetaVo loadDataVo,Map<String, Map> targetNameMapping)  {// 提交的数据为修改过的数据，即新增、修改、删除的
 		IDataView dataView = loadDataVo.getDataView();
 		String targetName = loadDataVo.getTargetName(),sourceName = loadDataVo.getSourceName();
 		IDAS das = VDS.getIntance().getDas();
@@ -348,46 +378,22 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 	private List<Map> handleAutoMappingField(IDataView source, List<Map> mappings, String entityName,String tableName){
 		//VTable table = IMDOFactory.getService().getTable(tableName);
 		IMdo mdo = VDS.getIntance().getMdo();
-		ITable table = mdo.getTable(tableName);
+		ITable table = mdo.getTable(tableName); 
 		
-		IDataSetMetaData data = source.getMetadata();
 		Set<String> existCodes = new HashSet<String>();
 		List<Map> newMappings = new ArrayList<Map>();
-		if(! VdsUtils.collection.isEmpty(mappings)){
-			for (int i = 0; i < mappings.size(); i++) {
-				Map map = mappings.get(i);
-				newMappings.add(map);
-				String colName = (String) map.get("colName");
-				existCodes.add(colName.split("\\.")[1]);
-			}
-		}
-		Map<String,String> sourceInfos = new HashMap<String, String>();
-		Set<String> sourceFields = null;
-		try {
-			sourceFields = data.getColumnNames();
-		} catch (SQLException e1) {
-		}
-		List<String> charType = Arrays.asList("char","date","longdate","text");
-		List<String> numberType = Arrays.asList("number","integer","float","double","bigdecimal");
-		if(!VdsUtils.collection.isEmpty(sourceFields)){
-			for (String code : sourceFields) {
-				String type = "";
-				try {
-					type = data.getMetaColumnType(code).toString().toLowerCase();
-				} catch (SQLException e) {
-					logger.warn("getMetaColumnType发生SQL错误，忽略",e);
-				}
-				if(!VdsUtils.string.isEmpty(type)){
-					if(charType.indexOf(type)!=-1){
-						sourceInfos.put(code, "char");
-					}else if(numberType.indexOf(type)!=-1){
-						sourceInfos.put(code, "number");
-					}else{
-						sourceInfos.put(code, type);
-					}
-				}
-			}
-		}
+		int size = (mappings == null ? 0 : mappings.size());
+		for (int i = 0; i < size; i++) {
+			Map map = mappings.get(i);
+			newMappings.add(map);
+			String colName = (String) map.get("colName");
+			existCodes.add(colName.split("\\.")[1]);
+		} 
+		
+		final List<String> charType = Arrays.asList("char","date","longdate","text");
+		final List<String> numberType = Arrays.asList("number","integer","float","double","bigdecimal");
+		Map<String,String> sourceInfos = getSourceFieldInfo(source, charType, numberType);
+		
 		List<IColumn> s = table.getColumns();
 		for (IColumn vColumn : s) {
 			String type = vColumn.getColumnType().toString().toLowerCase();
@@ -403,6 +409,40 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 			}
 		}
 		return newMappings;
+	}
+	private Map<String,String> getSourceFieldInfo(IDataView source ,List<String> charType ,List<String> numberType){
+		IDataSetMetaData data = source.getMetadata();
+		Set<String> sourceFields = null;
+		try {
+			sourceFields = data.getColumnNames();
+		} catch (SQLException e1) {
+			logger.warn("sql错误,忽略", e1);
+		}
+		if(VdsUtils.collection.isEmpty(sourceFields)) {
+			return Collections.emptyMap();
+		}
+			
+		Map<String,String> sourceInfos = new HashMap<String, String>();
+		for (String code : sourceFields) {
+			String type = null;
+			try {
+				type = data.getMetaColumnType(code).toString().toLowerCase();
+			} catch (SQLException e) {
+				logger.warn("getMetaColumnType发生SQL错误，忽略",e);
+			}
+			
+			if(!VdsUtils.string.isEmpty(type)){
+				if(charType.indexOf(type)!=-1){
+					sourceInfos.put(code, "char");
+				}else if(numberType.indexOf(type)!=-1){
+					sourceInfos.put(code, "number");
+				}else{
+					sourceInfos.put(code, type);
+				}
+			}
+		}
+		
+		return sourceInfos;
 	}
 	/**
 	 * 将modifiedList中的数据，按照targetNameMapping映射关系转化之后再更新到targetName中
