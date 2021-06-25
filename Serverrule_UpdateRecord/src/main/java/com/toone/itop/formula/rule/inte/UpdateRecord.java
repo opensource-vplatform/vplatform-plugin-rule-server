@@ -86,7 +86,7 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		}
 	}
 	private static final String D_ColName="colName",D_DataMap="dataMap";
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	
 	/**
 	 * 加载数据库数据
 	 * @param context
