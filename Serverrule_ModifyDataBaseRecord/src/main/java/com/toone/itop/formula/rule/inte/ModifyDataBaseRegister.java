@@ -15,7 +15,7 @@ import com.yindangu.v3.plugin.vds.reg.common.RegVds;
  * @Date 2021/5/27 11:23
  */
 public class ModifyDataBaseRegister implements IRegisterPlugin {
-	public static final String D_COMPONENT="Serverrule_AddTableRecord";
+	public static final String D_COMPONENT="Serverrule_" + ModifyDataBaseRecord.D_RULE_CODE; 
 	/** 插件作者 */
 	public final static String D_Author = "同望科技";
     /** 组织标识 */
@@ -28,6 +28,7 @@ public class ModifyDataBaseRegister implements IRegisterPlugin {
                 .getComponentProfile()
                 .setGroupId(D_GroupId)
                 .setCode(D_COMPONENT)
+                .setVersion("3.4.0")
                 .build();
     }
 
