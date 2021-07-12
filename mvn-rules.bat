@@ -9,13 +9,23 @@ mkdir target
 
 echo =================批量打包=================
 for %%i in (
-    Serverrule_EntityRecordRecycling
-	Serverrule_DeleteConditionRelationData
-	Serverrule_UpdateRecord
+          Serverrule_AbortLoop
+          Serverrule_AbortRule
+          Serverrule_AddTableRecord
+          Serverrule_ClearEntityData
+          Serverrule_DeleteConditionRelationData
+          Serverrule_EntityConditionRemove
+          Serverrule_EntityRecordRecycling
+          Serverrule_ExceptionAbort
+          Serverrule_ExecExpression
+          Serverrule_GenerateXMLOrJSON
+          Serverrule_SetEntityVarControlValue
+          Serverrule_SetLoopVariant
+          Serverrule_UpdateRecord
 ) do (
-	echo "mvn clean package -f %%i\pom.xml --settings %setting%" 
-	TIMEOUT /T 1
-	call mvn clean package -f %%i\pom.xml --settings %setting% >mvn%%i.log
+    echo "mvn clean package -f %%i\pom.xml --settings %setting%" 
+    TIMEOUT /T 1
+    call mvn clean package -Dmaven.test.skip=true -f %%i\pom.xml --settings %setting% >target\mvn%%i.log
     call copy %%i\target\*.jar target\
 )
    
