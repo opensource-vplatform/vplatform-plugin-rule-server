@@ -5,11 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.toone.v3.platform</groupId>
-    <artifactId>Serverrule_GenerateXMLOrJSON</artifactId>
-    <version>3.10.0</version>
-    <description>后台规则-配置数据生成</description>
+    <artifactId>Serverrule_CallWebApi</artifactId>
+    <version>5.10.0</version>
+    <description>后台规则-调用WebAPI</description>
 
-    <name>Serverrule_GenerateXMLOrJSON</name>
     <url>https://yindangu.gitbook.io/v-devsuite</url>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -19,22 +18,27 @@
 
     <dependencies>
         <dependency>
-            <groupId>dom4j</groupId>
-            <artifactId>dom4j</artifactId>
-            <version>1.6.1</version>
-            <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <artifactId>xml-apis</artifactId>
-                    <groupId>xml-apis</groupId>
-                </exclusion>
-            </exclusions>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpmime</artifactId>
+            <version>4.1.2</version>
         </dependency>
         <!-- ////////////////插件依赖开始/////////////////// -->
         <dependency>
             <groupId>com.yindangu.v3.platform</groupId>
             <artifactId>plugin-business-api</artifactId>
             <version>3.3.0</version>
+            <scope>system</scope>
+            <systemPath>${pom.basedir}/lib/com.yindangu.v3.platform-plugin-business-api-3.3.0.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.yindangu.v3.platform</groupId>
@@ -46,7 +50,24 @@
             <artifactId>plugin-utils</artifactId>
             <version>3.3.0</version>
         </dependency>
-        <!-- ////////////////插件依赖结束/////////////////// -->
+
+        <!-- ////////////////日志开始/////////////////// -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.0</version>
+        </dependency>
+        <!-- ///////////////日志结束//////////////////// -->
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
