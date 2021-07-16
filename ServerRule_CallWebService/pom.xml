@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.toone.v3.platform</groupId>
-    <artifactId>Serverrule_CallWebApi</artifactId>
-    <version>5.10.0</version>
-    <description>后台规则-调用WebAPI</description>
+    <artifactId>ServerRule_CallWebService</artifactId>
+    <version>3.10.0</version>
 
+    <description>后台规则-调用WebService</description>
     <url>https://yindangu.gitbook.io/v-devsuite</url>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -17,21 +17,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.1.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore</artifactId>
-            <version>4.1.2</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpmime</artifactId>
-            <version>4.1.2</version>
-        </dependency>
         <!-- ////////////////插件依赖开始/////////////////// -->
         <dependency>
             <groupId>com.yindangu.v3.platform</groupId>
