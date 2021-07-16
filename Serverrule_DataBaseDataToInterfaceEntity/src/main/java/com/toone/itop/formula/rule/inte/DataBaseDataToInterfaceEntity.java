@@ -574,15 +574,15 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 	@SuppressWarnings("rawtypes")
 	private List<Map> handleAutoMappingField(IDataView source,ITable table, List<Map> mappings, String entityName,String tableName){
 		IDataSetMetaData data = source.getMetadata();
-		Set<String> existCodes = new HashSet<String>();
-		List<Map> newMappings = new ArrayList<Map>();
-		if(!VdsUtils.collection.isEmpty(mappings)){
-			for (int i = 0; i < mappings.size(); i++) {
-				Map map = mappings.get(i);
-				newMappings.add(map);
-				String colName = (String) map.get("destName");
-				existCodes.add(colName.split("\\.")[1]);
-			}
+		int size =(mappings == null ? 0 : mappings.size());
+		List<Map> newMappings = new ArrayList<Map>(size);
+		Set<String> existCodes = new HashSet<String>(size);
+		
+		for (int i = 0; i < size; i++) {
+			Map map = mappings.get(i);
+			newMappings.add(map);
+			String colName = (String) map.get("destName");
+			existCodes.add(colName.split("\\.")[1]);
 		}
 		Map<String,String> sourceInfos = new HashMap<String, String>();
 		Set<String> sourceFields = null;
