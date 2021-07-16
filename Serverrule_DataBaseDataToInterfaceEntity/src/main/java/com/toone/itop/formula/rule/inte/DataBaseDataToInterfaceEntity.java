@@ -416,43 +416,33 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			QueryParamsVo queryVo = getQueryParamsVo(context, selectData, queryCondition, dataSourceName);
 			queryVo.setOrders(orderStr);
 			
-			long dua1=System.currentTimeMillis()-start1;
-			if(dua1>0){
-				loggerInfo("加载数据库记录查询耗时前：【"+dua1+"】毫秒");
+			long start2=System.currentTimeMillis();
+			if(start2 -start1 >10){
+				loggerInfo("加载数据库记录查询耗时前1：【"+ (start2 -start1)+"】毫秒");
 			}
 			
 			IDataView dataView = loadDataView(queryVo,vtable.isQuery(),pageSizeVo);
-			long start2=System.currentTimeMillis();
+			long start3=System.currentTimeMillis();
 			if(pageSizeVo.getTotalRecordSave()!=null) {
 				doSaveTotalRecord(ruleVObject, dataView, pageSizeVo.getTotalRecordSave());
 			}
 
-			
-			long start3=System.currentTimeMillis();
+			long start4 =System.currentTimeMillis(); 
+			if(start4 - start3>10){
+				loggerInfo("加载数据库记录查询耗时前2：【"+(start4 - start3)+"】毫秒");
+			}
 			//清空目标DataView
 			clearDataView(destDataView);
-			
-			
-			long dua3=System.currentTimeMillis()-start3;
-			if(dua3>0){
-				loggerInfo("加载数据库记录查询耗时3：【"+dua3+"】毫秒");
-			}
-			long start4=System.currentTimeMillis();
+		
 			if (null != dataView && !VdsUtils.collection.isEmpty(queryCondition)) { 
 				insertDataObject(dataView,queryCondition,destDataView);
-				
 			}
-			long dua4=System.currentTimeMillis()-start4;
-			if(dua4>0){
-				loggerInfo("加载数据库记录查询耗时4：【"+dua4+"】毫秒");
+			long start5=System.currentTimeMillis();
+			if(start5-start4>10){
+				loggerInfo("加载数据库记录查询耗时4：【"+(start5-start4)+"】毫秒");
 			}
-			
-			long dua2=System.currentTimeMillis()-start2;
-			if(dua2>0){
-				loggerInfo("加载数据库记录查询耗时后：【"+dua2+"】毫秒");
-			}	
 		}
-		return null;
+		return context.newOutputVo();
 	}
 	private class FieldMapVo implements IFieldMap{
 		private final String destField,sourceField;
@@ -574,15 +564,15 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 	@SuppressWarnings("rawtypes")
 	private List<Map> handleAutoMappingField(IDataView source,ITable table, List<Map> mappings, String entityName,String tableName){
 		IDataSetMetaData data = source.getMetadata();
-		Set<String> existCodes = new HashSet<String>();
-		List<Map> newMappings = new ArrayList<Map>();
-		if(!VdsUtils.collection.isEmpty(mappings)){
-			for (int i = 0; i < mappings.size(); i++) {
-				Map map = mappings.get(i);
-				newMappings.add(map);
-				String colName = (String) map.get("destName");
-				existCodes.add(colName.split("\\.")[1]);
-			}
+		int size =(mappings == null ? 0 : mappings.size());
+		List<Map> newMappings = new ArrayList<Map>(size);
+		Set<String> existCodes = new HashSet<String>(size);
+		
+		for (int i = 0; i < size; i++) {
+			Map map = mappings.get(i);
+			newMappings.add(map);
+			String colName = (String) map.get("destName");
+			existCodes.add(colName.split("\\.")[1]);
 		}
 		Map<String,String> sourceInfos = new HashMap<String, String>();
 		Set<String> sourceFields = null;
