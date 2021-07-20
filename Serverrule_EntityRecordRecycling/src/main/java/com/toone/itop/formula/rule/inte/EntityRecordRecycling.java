@@ -16,7 +16,7 @@ import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleVObject;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
-import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.IConditionParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 /**
  * 实体记录循环处理
@@ -53,7 +53,7 @@ public class EntityRecordRecycling  implements IRule  {
 		}
 		
 		//SQLBuf sql = QueryConditionUtil.parseConditionsNotSupportRuleTemplate(condition);
-		IQueryParse vparse= VDS.getIntance().getVSqlParse(); 
+		IConditionParse vparse= VDS.getIntance().getVSqlParse(); 
 		@SuppressWarnings("deprecation")
 		ISQLBuf sql = vparse.parseConditionsJson(conditions);
 		String condSql = sql.getSQL();

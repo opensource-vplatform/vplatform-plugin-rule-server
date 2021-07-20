@@ -35,7 +35,7 @@ import com.yindangu.v3.business.plugin.business.api.rule.IRuleVObject;
 import com.yindangu.v3.business.plugin.execptions.BusinessException;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.EnviException;
-import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.IConditionParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLConditions;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQuery;
@@ -276,7 +276,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		}
 		String whereCond = "";
 		if (!VdsUtils.collection.isEmpty(condSql)) {
-			IQueryParse vparse= VDS.getIntance().getVSqlParse(); 
+			IConditionParse vparse= VDS.getIntance().getVSqlParse(); 
     		ISQLBuf sb = vparse.parseConditionsJson(null,condSql,null);
 			//SQLBuf sb = QueryConditionUtil.parseConditionsNotSupportRuleTemplate(condSql);
 			
@@ -832,17 +832,17 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		}
 		
 
+		IVSQLQuery query = VDS.getIntance().getVSQLQuery();
 		// 查询附加条件组装
 		IVSQLConditions extraSqlConditions = null;
 		if(!VdsUtils.string.isEmpty(extraQueryCondition)){
-			IQueryParse vparse= VDS.getIntance().getVSqlParse();
-			extraSqlConditions = vparse.getVSQLConditions(extraQueryCondition);
+			//IQueryParse vparse= VDS.getIntance().getVSqlParse();
+			extraSqlConditions = query.getVSQLConditions(extraQueryCondition);
 			//extraSqlConditions = IVSQLConditionsFactory.getService().init();
 			//extraSqlConditions.setSqlConStr(extraQueryCondition);
 			extraSqlConditions.setLogic(VSQLConditionLogic.AND);
 		}
 		long start=System.currentTimeMillis();
-		IVSQLQuery query = VDS.getIntance().getVSQLQuery();
 		
 		IDataView dataView ;
 		if (pageSizeVo.getRecordStart() <= 0 || pageSizeVo.getPageSize() <= 0) {

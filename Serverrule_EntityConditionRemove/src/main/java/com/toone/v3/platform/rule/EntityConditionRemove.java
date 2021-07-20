@@ -5,7 +5,7 @@ import com.yindangu.v3.business.metadata.api.IDataObject;
 import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.plugin.business.api.rule.*;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
-import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.IConditionParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 
 import java.util.List;
@@ -36,7 +36,7 @@ public class EntityConditionRemove implements IRule {
             String entityType = (String) dtChileMap.get(Param_entityType);
             List<Map> conditions = (List<Map>) dtChileMap.get(Param_dsWhere);
 
-            IQueryParse vparse= VDS.getIntance().getVSqlParse();
+            IConditionParse vparse= VDS.getIntance().getVSqlParse();
             ISQLBuf sql = vparse.parseConditionsJson(conditions);
 
             String condSql = sql.getSQL();
