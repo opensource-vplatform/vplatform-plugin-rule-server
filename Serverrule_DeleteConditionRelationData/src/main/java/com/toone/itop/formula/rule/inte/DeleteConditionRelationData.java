@@ -14,7 +14,7 @@ import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.plugin.business.api.rule.IRule;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
-import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.IConditionParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
 
@@ -58,7 +58,7 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
 	        	das.getContext().init();
 	        	das.getContext().addTreeStructMaps(treeStructList);
 	        }
-	        IQueryParse vparse= VDS.getIntance().getVSqlParse(); 
+	        IConditionParse vparse= VDS.getIntance().getVSqlParse(); 
 	        for (Map dtChileMap : dtChileMaps) {
 	            String tableName = (String) dtChileMap.get("tableName");
 	            List<Map> conditions = (List<Map>) dtChileMap.get("dsWhere");
