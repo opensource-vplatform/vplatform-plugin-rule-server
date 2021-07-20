@@ -152,7 +152,7 @@ public class CopyRecordBetweenTables  extends AbstractRule4Tree implements IRule
 		// System.out.println(JsonUtils.toJson(sql));
 		//IVSQLQueryFactory.getService().excuteSql(vSQLQueryUpdate, params);
 		vquery.excuteSql(vSQLQueryUpdate, params);
-		return null;
+		return context.newOutputVo();
 	}
 
 	/**

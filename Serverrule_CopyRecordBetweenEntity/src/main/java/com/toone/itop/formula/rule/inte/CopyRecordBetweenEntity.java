@@ -158,24 +158,23 @@ public class CopyRecordBetweenEntity  extends AbstractRule4Tree implements IRule
 		IVSQLQuery sqlQuery = VDS.getIntance().getVSQLQuery();
 		
 		IFieldMapping fm = new IFieldMapping() {
-			@SuppressWarnings("rawtypes")
 			@Override
 			public SourceMappingType getSourceType(Map row) {
 				if (VdsUtils.collection.isEmpty(row)) {
 					throw new ConfigException("参数传入错误！row is null");
 				}
-				String sourceType = (String) row.get("valueType");
+				String sourceType = (String) row.get("sourceType");
 				if (VdsUtils.string.isEmpty(sourceType)) {
 					throw new ConfigException("参数传入错误！参数[row]中没有包含对应的[sourceType]");
 				}
 				// 数据来源："expression : 表达式； sqlExpression ： sql表达式"
 				SourceMappingType type = null;
-				if (sourceType.toLowerCase().equals("expression")) {
+				if (sourceType.equalsIgnoreCase("expression")) {
 					type = SourceMappingType.Expression;
-				} else if (sourceType.toLowerCase().equals("sqlexpression")) {
-					type = SourceMappingType.SQLExpression;
+				} else if (sourceType.equalsIgnoreCase("entityField")) {
+					type = SourceMappingType.TableField;
 				} else {
-					throw new ConfigException("参数传入错误！不支持[sourceType]类型.");
+					throw new ConfigException("参数传入错误！不支持[sourceType]类型:"+ sourceType);
 				}
 				return type;
 			}

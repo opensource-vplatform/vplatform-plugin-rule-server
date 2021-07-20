@@ -38,9 +38,9 @@ import com.yindangu.v3.platform.plugin.util.VdsUtils;
 public class ServPrintDataTrans implements IRule{
 
 	private static final Logger logger = LoggerFactory.getLogger(ServPrintDataTrans.class);
-	public static final String D_RULE_NAME = "";
+	public static final String D_RULE_NAME = "报表打印数据转换";
 	public static final String D_RULE_CODE = "ServPrintDataTrans";
-	public static final String D_RULE_DESC = "报表打印数据转换";
+	public static final String D_RULE_DESC = "";
 	
 	@Override
 	@SuppressWarnings({ "unchecked", "deprecation"  })
