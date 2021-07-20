@@ -165,9 +165,9 @@ public class CallWebApi implements IRule {
                 if ("ruleSetVariant".equals(targetType)) {
                     targetEntityType = ContextVariableType.getInstanceType("ruleSetVar");
                 } else if ("ruleSetOutput".equals(targetType)) {
-                    targetEntityType = ContextVariableType.getInstanceType("ruleSetVar");
+                    targetEntityType = ContextVariableType.getInstanceType("ruleSetOutput");
                 } else if ("systemVariant".equals(targetType)) {
-                    targetEntityType = ContextVariableType.getInstanceType("ruleSetVar");
+                    targetEntityType = ContextVariableType.getInstanceType("systemVariant");
                 } else {
                     throw new ConfigException("执行活动集目标实体变量赋值失败，返回目标类型" + targetType + "不正确，目前只支持类型ruleSetVariant及ruleSetOutput");
                 }
