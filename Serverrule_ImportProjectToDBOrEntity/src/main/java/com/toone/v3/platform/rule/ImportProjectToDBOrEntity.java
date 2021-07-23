@@ -29,21 +29,21 @@ import java.util.*;
  */
 public class ImportProjectToDBOrEntity implements IRule {
 
-    private static final Logger logger						= LoggerFactory.getLogger(ImportProjectToDBOrEntity.class);
+    private static final Logger logger = LoggerFactory.getLogger(ImportProjectToDBOrEntity.class);
     /* 目标类型：表 */
-    private String				targetType_table			= "table";
+    private String targetType_table = "table";
     /* 目标类型：活动集输入变量实体 */
-    private String				targetType_ruleSetInput		= "ruleSetInput";
+    private String targetType_ruleSetInput = "ruleSetInput";
     /* 目标类型：活动集输出变量实体 */
-    private String				targetType_ruleSetOutput	= "ruleSetOutput";
+    private String targetType_ruleSetOutput = "ruleSetOutput";
     /* 目标类型：活动集上下文实体 */
-    private String				targetType_ruleSetVar		= "ruleSetVar";
+    private String targetType_ruleSetVar = "ruleSetVar";
     /* 重复数据处理方式：更新 */
-    private String				repeatOperation_replace		= "replace";
+    private String repeatOperation_replace = "replace";
     /* 映射字段来源类型：属性 */
-    private String				mapping_sourcetype_property	= "projectProperty";
+    private String mapping_sourcetype_property = "projectProperty";
     /* 约定的树型编码每级的编码格式，长度为5 */
-    private String				pattern						= "00000";
+    private String pattern = "00000";
     /* 系统树形编码树 */
     private int tc = 1;
 
@@ -63,7 +63,7 @@ public class ImportProjectToDBOrEntity implements IRule {
         } else {
             if (targetType_ruleSetInput.equals(tagetType) || targetType_ruleSetOutput.equals(tagetType) || targetType_ruleSetVar.equals(tagetType)) {
                 ContextVariableType instanceType = ContextVariableType.getInstanceType(targetType_ruleSetInput);
-                dataView = (IDataView)context.getVObject().getContextObject(targetName, instanceType);
+                dataView = (IDataView) context.getVObject().getContextObject(targetName, instanceType);
             } else {
                 throw new ConfigException("Project导入到数据库表或实体规则，不支持实体类型【" + tagetType + "】，请检查！");
             }
@@ -102,7 +102,10 @@ public class ImportProjectToDBOrEntity implements IRule {
             quiteClose(inputStream);
         }
         logger.info("后台导入Project数据总时长：" + (System.currentTimeMillis() - starTime) + "毫秒");
-        return null;
+
+        IRuleOutputVo outputVo = context.newOutputVo();
+        outputVo.put(null);
+        return outputVo;
     }
 
     /**
@@ -440,7 +443,7 @@ public class ImportProjectToDBOrEntity implements IRule {
     }
 
     private boolean isEmpty(String str) {
-        if(str == null || str.equals("")) {
+        if (str == null || str.equals("")) {
             return true;
         }
 
@@ -448,7 +451,7 @@ public class ImportProjectToDBOrEntity implements IRule {
     }
 
     private boolean isEmpty(List<?> list) {
-        if(list == null || list.isEmpty()) {
+        if (list == null || list.isEmpty()) {
             return true;
         }
 
@@ -460,10 +463,10 @@ public class ImportProjectToDBOrEntity implements IRule {
     }
 
     private void quiteClose(Closeable c) {
-        if(c != null) {
+        if (c != null) {
             try {
                 c.close();
-            } catch(Exception e){
+            } catch (Exception e) {
                 // 忽略
             }
         }
