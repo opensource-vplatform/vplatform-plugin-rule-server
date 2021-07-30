@@ -40,7 +40,7 @@ public class AddTableRecord implements IRule {
 		if(mappings==null){ //没有配置映射
 			mappings = Collections.emptyList();
 		}
-		log.info("使用新插件接口..有没有配置映射:" + mappings.size());
+		//log.info("使用新插件接口..有没有配置映射:" + mappings.size());
 		
 		IFormulaEngine formulaEngine = VDS.getIntance().getFormulaEngine();
 		int count;{
