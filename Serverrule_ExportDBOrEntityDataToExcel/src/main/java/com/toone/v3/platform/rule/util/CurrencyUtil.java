@@ -31,7 +31,7 @@ public class CurrencyUtil {
         for(IDataObject dataObject:list){
             try {
                 Map<String, Object> item = new HashMap<String, Object>();
-                Set<String> columnSet = source.getMetadata().getColumnNames();
+                Set<String> columnSet = source.getMetadata().getColumnNamesAll();
                 for(Object object:columnSet){
                     item.put(object.toString(), dataObject.get(object.toString()));
                 }

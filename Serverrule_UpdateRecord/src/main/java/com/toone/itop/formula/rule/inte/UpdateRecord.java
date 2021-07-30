@@ -414,7 +414,7 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		IDataSetMetaData data = source.getMetadata();
 		Set<String> sourceFields = null;
 		try {
-			sourceFields = data.getColumnNames();
+			sourceFields = data.getColumnNamesAll();
 		} catch (SQLException e1) {
 			logger.warn("sql错误,忽略", e1);
 		}

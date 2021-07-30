@@ -578,7 +578,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		Set<String> sourceFields = null;
 		try {
 			//sourceFields = source.getMeta().getColumnNames();
-			sourceFields = data.getColumnNames();
+			sourceFields = data.getColumnNamesAll();
 		} catch (SQLException e1) {
 			log.error("发生SQL错误，忽略",e1);
 		}
