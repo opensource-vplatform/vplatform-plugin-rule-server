@@ -1,11 +1,13 @@
 package com.toone.itop.formula.rule;
 
-public class InvokeTargetVo {
+class InvokeTargetVo {
 	//private String executeType;
 	private String remoteUrl;
 	private String ruleSetCode;
 	private String componentCode;
 	private boolean parallelism;
+	private String instanceCode;
+	
 	/*
 	public String getExecuteType() {
 		return executeType;
@@ -40,6 +42,12 @@ public class InvokeTargetVo {
 	}
 	public void setParallelisms(boolean parallelism) {
 		this.parallelism = parallelism;
+	}
+	public String getInstanceCode() {
+		return instanceCode;
+	}
+	public void setInstanceCode(String instanceCode) {
+		this.instanceCode = instanceCode;
 	}
 	
 }
