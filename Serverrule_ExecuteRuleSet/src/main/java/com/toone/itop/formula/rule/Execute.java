@@ -983,7 +983,15 @@ class Execute{
 	}
 	
 	private IDataView getOutputDataViewByContext(String targetName,IRuleVObject vobject, ContextVariableType targetType){
-		if(!ContextVariableType.RuleSetVar.equals(targetType) ||  !ContextVariableType.RuleSetOutput.equals(targetType)) {
+		if(ContextVariableType.RuleSetVar.equals(targetType) ||  ContextVariableType.RuleSetOutput.equals(targetType)) {
+			//vobject.getContextObject(key, type);
+			IDataView dataView = (IDataView)vobject.getContextObject(targetName, targetType);
+			if(dataView == null) {
+				throw new ConfigException("执行活动集目标实体变量赋值失败，返回目标类型" + targetType+ "不存在DataView");
+			}
+			return dataView;
+		}
+		else {
 			throw new ConfigException("执行活动集目标实体变量赋值失败，返回目标类型" + targetType
 					+ "不正确，目前只支持类型ruleSetVariant及ruleSetOutput");
 		}
@@ -993,12 +1001,7 @@ class Execute{
 		} else if ("ruleSetOutput".equals(targetType)) {
 			//dataView = (DataView) RuleSetVariableUtil.getOutputVariable(context, targetName);
 		}*/
-
-		IDataView dataView = (IDataView)vobject.getContextObject(targetName, targetType);
-		if(dataView == null) {
-			throw new ConfigException("执行活动集目标实体变量赋值失败，返回目标类型" + targetType+ "不存在DataView");
-		}
-		return dataView;
+		
 	}
 	
 	private void setOutputDataView(IRuleContext context, IDataView dataView,boolean reference
@@ -1052,7 +1055,7 @@ class Execute{
 			return ; 
 		}
 		///////////////////////////////////////////////////////
-		
+
 		IDataView sourceDataView = (IDataView) item.getItemValue();
 		if (null != sourceDataView && sourceDataView.size() > 0) {
 			//ContextVariableType targetType = getContextVariableTarget(targetType);
@@ -1121,12 +1124,14 @@ class Execute{
 			List<Map<String, Object>> targetRecords = sourceDataView.getDatas(sourceFieldMap, expressMap);
 			targetDataView.insertDataObject(targetRecords);
 		}else{
-			if(!ContextVariableType.RuleSetVar.equals(targetType) ||  !ContextVariableType.RuleSetOutput.equals(targetType)) {
+			if(ContextVariableType.RuleSetVar.equals(targetType) ||  ContextVariableType.RuleSetOutput.equals(targetType)) {
+				//直接把源dataView设置到输出变量
+				context.getVObject().setContextObject(targetType, targetName, sourceDataView);
+			}
+			else {
 				throw new ConfigException("执行活动集目标实体变量赋值失败，返回目标类型" + targetType
 						+ "不正确，目前只支持类型ruleSetVariant及ruleSetOutput");
 			}
-			//直接把源dataView设置到输出变量
-			context.getVObject().setContextObject(targetType, targetName, sourceDataView);
 			/*
 			if ("ruleSetVariant".equals(targetType)) {
 				RuleSetVariableUtil.setContextVariable(context, targetName, sourceDataView);
