@@ -27,6 +27,11 @@ import com.yindangu.v3.business.vsql.apiserver.IVSQLQueryUpdate.OptionType;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQueryUpdate.UpdateType;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
 
+/**
+ * 修改数据库中的记录
+ * @author jiqj
+ *
+ */
 public class ModifyDataBaseRecord extends AbstractRule4Tree implements IRule {
 	private static final Logger log = LoggerFactory.getLogger(ModifyDataBaseRecord.class);
 
