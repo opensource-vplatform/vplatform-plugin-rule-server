@@ -341,7 +341,7 @@ class Execute{
 
 		// TODO liangmf 2015-06-09 由于目前流程事件不能穿透执行活动集，暂时加一个使用
 		//Object extraEvent = context.getInputParams().get(Param_EventContext);
-		Object extraEvent = context.getPlatformInput(ExecuteRuleSet.Param_EventContext);
+		Object extraEvent = context.getInputParams(ExecuteRuleSet.Param_EventContext);
 		if (null != extraEvent) {
 			ruleSetInputParams.put(ExecuteRuleSet.Param_EventContext, extraEvent);
 		}
