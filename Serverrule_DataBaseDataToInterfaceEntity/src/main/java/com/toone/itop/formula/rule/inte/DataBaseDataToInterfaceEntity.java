@@ -521,11 +521,12 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			String type = (String) map.get("type");
 			if (type.equals("entityField")) {
 				// 当字段出现.的时候，必须把.去除
-				if (sourceName.indexOf(".") != -1) {
-					sourceName = sourceName.substring(sourceName.lastIndexOf(".") + 1);
+				int sourceDotIdx,destDotIdx;
+				if ((sourceDotIdx = sourceName.lastIndexOf('.')) != -1) {
+					sourceName = sourceName.substring(sourceDotIdx + 1);
 				}
-				if (destName.indexOf(".") != -1) {
-					destName = destName.substring(destName.lastIndexOf(".") + 1);
+				if ((destDotIdx = destName.lastIndexOf('.')) != -1) {
+					destName = destName.substring(destDotIdx + 1);
 				}
 				Map<String, Object> fieldMap = new HashMap<String, Object>();
 				fieldMap.put("sourceName", sourceName);
