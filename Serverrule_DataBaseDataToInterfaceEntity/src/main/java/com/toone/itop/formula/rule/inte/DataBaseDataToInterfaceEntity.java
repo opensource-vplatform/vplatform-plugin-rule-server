@@ -29,6 +29,7 @@ import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.metadata.apiserver.IMdo;
 import com.yindangu.v3.business.plugin.business.api.rule.ContextVariableType;
 import com.yindangu.v3.business.plugin.business.api.rule.IRule;
+import com.yindangu.v3.business.plugin.business.api.rule.IRuleConfigVo;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleVObject;
@@ -379,7 +380,8 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		
 		for (Map<String, Object> selectData : selectDatas) {
 			String dataSourceName = (String) selectData.get(Param_SourceName);
-			if (VdsUtils.string.isEmpty(dataSourceName) || !mdo.hasTable(dataSourceName)) {
+			if (VdsUtils.string.isEmpty(dataSourceName) || !mdo.hasTable(dataSourceName)) { 
+				log.warn("数据源{}.{}不存在",context.getConfigVo().getRuleChainName(),dataSourceName);
 				continue;
 			}
 			

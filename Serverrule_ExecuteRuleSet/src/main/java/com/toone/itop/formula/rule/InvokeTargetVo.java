@@ -37,6 +37,7 @@ class InvokeTargetVo {
 		this.componentCode = (String)componentCode;
 		return this;
 	}
+	/**并行执行（异步处理）*/
 	public boolean isParallelism() {
 		return parallelism;
 	}
