@@ -62,7 +62,7 @@ public class ImportProjectToDBOrEntity implements IRule {
             }
         } else {
             if (targetType_ruleSetInput.equals(tagetType) || targetType_ruleSetOutput.equals(tagetType) || targetType_ruleSetVar.equals(tagetType)) {
-                ContextVariableType instanceType = ContextVariableType.getInstanceType(targetType_ruleSetInput);
+                ContextVariableType instanceType = ContextVariableType.getInstanceType(tagetType);
                 dataView = (IDataView) context.getVObject().getContextObject(targetName, instanceType);
             } else {
                 throw new ConfigException("Project导入到数据库表或实体规则，不支持实体类型【" + tagetType + "】，请检查！");
@@ -96,8 +96,7 @@ public class ImportProjectToDBOrEntity implements IRule {
                 this.covertDataSaveToDV(projectDataMap, dataView, mapping, repeatOperation, checkItems, treeStructMap);
             }
         } catch (Exception e) {
-            e.printStackTrace();
-            throw new ConfigException("Project导入到数据库表或实体规则， 导入失败！信息如下：\n" + e.getMessage());
+            throw new ConfigException("Project导入到数据库表或实体规则， 导入失败！信息如下：\n" + e.getMessage(), e);
         } finally {
             quiteClose(inputStream);
         }
