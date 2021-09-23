@@ -39,12 +39,15 @@ import com.yindangu.v3.business.plugin.execptions.EnviException;
 import com.yindangu.v3.business.rule.api.parse.IConditionParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLConditions;
+import com.yindangu.v3.business.vsql.apiserver.IVSQLOrderBy;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQuery;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLUtil;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLUtil.FieldType;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLUtil.IFieldMap;
 import com.yindangu.v3.business.vsql.apiserver.VSQLConditionLogic;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
+import com.yindangu.v3.plugin.vds.reg.common.util.RegisterUtils;
+import com.yindangu.v3.plugin.vds.reg.common.util.StringUtil;
 
 /**
  * 从数据库加载数据到界面实体
@@ -408,7 +411,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			}
 			///////////
 			ITable vtable = mdo.getTable(dataSourceName);
-			String orderStr = getOrderbyString(queryOrderBy);
+			String orderStr = getOrderbyString(dataSourceName,queryOrderBy);
 
 			Boolean isFileAutoMapping = (Boolean)selectData.get(Param_FileAutoMapping)  ;
 			if(isFileAutoMapping!=null &&  isFileAutoMapping){
@@ -711,8 +714,8 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 	 * @param queryOrderBy
 	 * @return
 	 */
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private String getOrderbyString(Object queryOrderBy) {
+	@SuppressWarnings({ "unchecked"})
+	private String getOrderbyString(String dataSourceName, Object queryOrderBy) {
 		
 		if (queryOrderBy == null || !(queryOrderBy instanceof List)) {
 			return null;
@@ -722,22 +725,37 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			return null;
 		}
 		/////////////////
-		String orderStr = "";
+		StringBuilder orderStr = new StringBuilder();
+		boolean appendCheck = true;
 		for (Map<String, Object> map: orderFieldList) {
 			String fieldName = (String) map.get("field");
 			String type = (String) map.get("type");
 			if (type == null) {
 				type = "asc";
 			}
-			if (orderStr.length() > 0) {
-				orderStr += ",";
+			appendCheck = true;
+			
+			int idx =fieldName.indexOf(".");
+			if (idx>=0) {
+				String t = fieldName.substring(0,idx);
+				//历史可能残留了不同步的表名，如果不同的表名就忽略(开发系统担心有残留数据导致不兼容加的逻辑--赵衍 20210923)
+				if(t.equalsIgnoreCase(dataSourceName)) { 
+					fieldName = fieldName.substring(idx+ 1);
+				}
+				else {
+					appendCheck = false;
+					log.info("历史可能残留了不同步的表名，如果不同的表名就忽略(开发系统担心有残留数据导致不兼容加的逻辑--赵衍 20210923),要求表名({})实际({})",dataSourceName,t);
+				}
 			}
-			if (fieldName.indexOf(".") != -1) {
-				fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
+			
+			if(appendCheck) {
+				if (orderStr.length() > 0) {
+					orderStr.append(',');
+				}
+				orderStr.append(fieldName).append(' ').append(type);
 			}
-			orderStr += fieldName + " " + type;
 		} 
-		return orderStr;
+		return orderStr.toString();
 	}
 
 	/**
@@ -846,14 +864,19 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			extraSqlConditions.setLogic(VSQLConditionLogic.AND);
 		}
 		long start=System.currentTimeMillis();
-		
-		IDataView dataView ;
-		if (pageSizeVo.getRecordStart() <= 0 || pageSizeVo.getPageSize() <= 0) {
-			dataView = query.loadQueryData(queryName, queryParams, extraSqlConditions, true);
-		} else {
-			dataView = query.loadQueryData(queryName, queryParams, extraSqlConditions,
-					pageSizeVo.getRecordStart(), pageSizeVo.getPageSize(), true);
+		IVSQLOrderBy vorder;
+		if(RegisterUtils.string.isEmpty(queryVo.getOrders())){
+			vorder = null;
 		}
+		else {
+			vorder =query.newSQLOrderBy();
+			vorder.setSqlConStr(" order by "+queryVo.getOrders()); 
+		} 
+		int startRecord = pageSizeVo.getRecordStart(),countRecord = pageSizeVo.getPageSize(); 
+
+		IDataView dataView = query.loadQueryData(queryName, queryParams, extraSqlConditions,vorder,
+					startRecord, countRecord, true);
+		
 		long dua=System.currentTimeMillis()-start;
 		if(dua>0){
 			loggerInfo("加载数据库记录查询内部耗时1：【"+dua+"】毫秒");
