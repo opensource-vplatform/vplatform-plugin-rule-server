@@ -735,7 +735,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			}
 			appendCheck = true;
 			
-			int idx =fieldName.indexOf(".");
+			int idx =fieldName.lastIndexOf('.');
 			if (idx>=0) {
 				String t = fieldName.substring(0,idx);
 				//历史可能残留了不同步的表名，如果不同的表名就忽略(开发系统担心有残留数据导致不兼容加的逻辑--赵衍 20210923)
