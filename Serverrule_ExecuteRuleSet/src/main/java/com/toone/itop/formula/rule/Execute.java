@@ -275,7 +275,7 @@ class Execute{
 
 					@Override
 					public void error(Throwable throwable) {
-						logger.info("执行构件方法异常，throwable=" + throwable);
+						logger.error("执行构件方法异常，throwable=" + throwable,throwable);
 					}
 				};
 				// 注释以前调用方法
