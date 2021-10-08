@@ -526,7 +526,8 @@ public class CallWebService implements IRule {
         }
         //	若类型是表达式，需要解析,解析出来有可能不为String类型，需要转化换
         if ("expression".equals(returnType)) {
-            returnName = String.valueOf(getVDS().getFormulaEngine().eval(returnName));
+        	Object s = getVDS().getFormulaEngine().eval(returnName);
+            returnName =  String.valueOf(s);
         }
         //	判断webService返回值与手动输入的变量是否一致，不一致直接返回
         if (!srcColumnMaps.containsKey(returnName)) {
