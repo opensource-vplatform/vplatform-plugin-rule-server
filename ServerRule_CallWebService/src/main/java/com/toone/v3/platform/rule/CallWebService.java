@@ -752,8 +752,11 @@ public class CallWebService implements IRule {
     /** 租户字段 */
     private static String H2_TenantID_Field="V3_TenantID";
 
-    private List<IColumn> getColumns(IDataSetMetaData datasetMetaData) {
-        try {
+    private Collection<IColumn> getColumns(IDataSetMetaData datasetMetaData) {
+    	//封装了新接口
+    	 Collection<IColumn> columns = datasetMetaData.getColumns();
+         return columns;
+        /*try { 
             Set<String> columnNames = datasetMetaData.getColumnNames();
             List<IColumn> columns = new ArrayList<>();
             for(String columnName : columnNames) {
@@ -766,11 +769,11 @@ public class CallWebService implements IRule {
                     columns.add(datasetMetaData.getColumn(columnName));
                 }
             }
-
-            return columns;
+        	
         } catch(SQLException e) {
             throw new RuntimeException("获取字段失败", e);
-        }
+        }*/
+       
     }
 
     /**
@@ -783,7 +786,7 @@ public class CallWebService implements IRule {
             throw new ConfigException("获取实体字段和类型异常，所传入的dataView参数为空");
         }
         IDataSetMetaData datasetMetaData = ((IDataSetMetaData)targetDataView.getMetadata());
-        List<IColumn> columns = getColumns(datasetMetaData);
+        Collection<IColumn> columns = getColumns(datasetMetaData);
         Map<String, String> tragetColumnMap = new HashMap<String, String>();
         for (IColumn vColumn : columns) {
             String columnName = vColumn.getColumnName();
@@ -803,7 +806,7 @@ public class CallWebService implements IRule {
             throw new ConfigException("获取实体字段和类型异常，所传入的dataView参数为空");
         }
         IDataSetMetaData datasetMetaData = ((IDataSetMetaData)sourceDataView.getMetadata());
-        List<IColumn> columns = getColumns(datasetMetaData);
+        Collection<IColumn> columns = getColumns(datasetMetaData);
         Map<String, IColumn> tragetColumnMap = new HashMap<String, IColumn>();
         for (IColumn vColumn : columns) {
             String columnName = vColumn.getColumnName();

@@ -16,12 +16,17 @@ for %%i in (
           Serverrule_DeleteConditionRelationData
           Serverrule_EntityConditionRemove
           Serverrule_EntityRecordRecycling
+          Serverrule_UpdateRecord
           Serverrule_ExceptionAbort
           Serverrule_ExecExpression
           Serverrule_GenerateXMLOrJSON
           Serverrule_SetEntityVarControlValue
           Serverrule_SetLoopVariant
-          Serverrule_UpdateRecord
+          Serverrule_ModifyDataBaseRecord
+          Serverrule_DataBaseDataToInterfaceEntity
+          Serverrule_CopyRecordBetweenEntity
+          Serverrule_CopyRecordBetweenTables
+          Serverrule_ServPrintDataTrans
 ) do (
     echo "mvn clean package -f %%i\pom.xml --settings %setting%" 
     TIMEOUT /T 1

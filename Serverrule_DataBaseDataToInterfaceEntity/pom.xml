@@ -6,6 +6,7 @@
 
     <groupId>com.toone.v3.platform</groupId>
     <artifactId>Serverrule_DataBaseDataToInterfaceEntity</artifactId>
+    <name>${project.groupId}-${project.artifactId}</name>
     <version>3.9.0</version>
     <description>后台规则-从数据库加载数据到界面实体</description> 
 
@@ -59,5 +60,6 @@
     </dependencies>
 
     <build> 
+    <finalName>${project.groupId}-${project.artifactId}-${project.version}</finalName>
     </build>
 </project>

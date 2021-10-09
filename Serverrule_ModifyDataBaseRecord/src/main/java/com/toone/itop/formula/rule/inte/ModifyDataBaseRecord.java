@@ -15,14 +15,12 @@ import com.yindangu.v3.business.plugin.business.api.rule.IRule;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
-import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.IConditionParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 import com.yindangu.v3.business.vsql.apiserver.IFieldMapping;
 import com.yindangu.v3.business.vsql.apiserver.IParamFieldVo;
-import com.yindangu.v3.business.vsql.apiserver.IVSQLConditions;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQuery;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQueryUpdate;
-import com.yindangu.v3.business.vsql.apiserver.VSQLConditionLogic;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQueryUpdate.OptionType;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQueryUpdate.UpdateType;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
@@ -48,7 +46,7 @@ public class ModifyDataBaseRecord extends AbstractRule4Tree implements IRule {
 			return context.newOutputVo();//.setMessage("没有映射数据").setSuccess(false);
 		}
 		IFormulaEngine engine = VDS.getIntance().getFormulaEngine();
-		IQueryParse vparse= VDS.getIntance().getVSqlParse();
+		IConditionParse vparse= VDS.getIntance().getVSqlParse();
 		
 		for (int i = 0; i < condParams.size(); i++) {
 			Map config = condParams.get(i);
@@ -58,7 +56,7 @@ public class ModifyDataBaseRecord extends AbstractRule4Tree implements IRule {
 		return context.newOutputVo();
 	}
 	@SuppressWarnings({ "unchecked", "rawtypes", "deprecation" })
-	private void evaluateSub(IQueryParse vparse,IFormulaEngine engine,Map config ) {
+	private void evaluateSub(IConditionParse vparse,IFormulaEngine engine,Map config ) {
 		
 		// 目标表名
 		String destTable = (String) config.get("dataSource");
@@ -165,7 +163,7 @@ public class ModifyDataBaseRecord extends AbstractRule4Tree implements IRule {
 		IVSQLQueryUpdate updateVo = query.newQueryUpdate();
 		updateVo.setQueryName(null);// 源表
 		updateVo.setTableName(destTable);// 目标表
-		updateVo.setVSqlConditions(buildSqlConds(vparse,queryCondition));// 源表where条件
+		updateVo.setVSqlConditions(query.getVSQLConditions(queryCondition));// 源表where条件
 		
 		buildSql(updateVo,   mappingItems, parameters, true);
 		//IVSQLQueryFactory.getService().excuteSql(sql, parameters);
@@ -220,19 +218,18 @@ public class ModifyDataBaseRecord extends AbstractRule4Tree implements IRule {
 	 * 构造高级查询where条件
 	 * 
 	 * @param condSql
-	 * @return
-	 */
+	 * @return 
 	protected IVSQLConditions buildSqlConds(IQueryParse vparse,String condSql) {
 		if (VdsUtils.string.isEmpty(condSql)) {
 			return null;
 		}
 		IVSQLConditions c = vparse.getVSQLConditions(condSql);
 		c.setLogic(VSQLConditionLogic.AND);
-		/*
-		IVSQLConditions cond = IVSQLConditionsFactory.getService().init();
-		cond.setSqlConStr(condSql);
-		cond.setLogic(VSQLConst.LogicAnd);*/
+		
+		//IVSQLConditions cond = IVSQLConditionsFactory.getService().init();
+		//cond.setSqlConStr(condSql);
+		//cond.setLogic(VSQLConst.LogicAnd);
 		return c;
-	}
+	}*/
 	
 }

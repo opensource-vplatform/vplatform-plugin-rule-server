@@ -29,21 +29,25 @@ import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.metadata.apiserver.IMdo;
 import com.yindangu.v3.business.plugin.business.api.rule.ContextVariableType;
 import com.yindangu.v3.business.plugin.business.api.rule.IRule;
+import com.yindangu.v3.business.plugin.business.api.rule.IRuleConfigVo;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleVObject;
 import com.yindangu.v3.business.plugin.execptions.BusinessException;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.EnviException;
-import com.yindangu.v3.business.rule.api.parse.IQueryParse;
+import com.yindangu.v3.business.rule.api.parse.IConditionParse;
 import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLConditions;
+import com.yindangu.v3.business.vsql.apiserver.IVSQLOrderBy;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQuery;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLUtil;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLUtil.FieldType;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLUtil.IFieldMap;
 import com.yindangu.v3.business.vsql.apiserver.VSQLConditionLogic;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
+import com.yindangu.v3.plugin.vds.reg.common.util.RegisterUtils;
+import com.yindangu.v3.plugin.vds.reg.common.util.StringUtil;
 
 /**
  * 从数据库加载数据到界面实体
@@ -276,7 +280,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		}
 		String whereCond = "";
 		if (!VdsUtils.collection.isEmpty(condSql)) {
-			IQueryParse vparse= VDS.getIntance().getVSqlParse(); 
+			IConditionParse vparse= VDS.getIntance().getVSqlParse(); 
     		ISQLBuf sb = vparse.parseConditionsJson(null,condSql,null);
 			//SQLBuf sb = QueryConditionUtil.parseConditionsNotSupportRuleTemplate(condSql);
 			
@@ -379,7 +383,8 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		
 		for (Map<String, Object> selectData : selectDatas) {
 			String dataSourceName = (String) selectData.get(Param_SourceName);
-			if (VdsUtils.string.isEmpty(dataSourceName) || !mdo.hasTable(dataSourceName)) {
+			if (VdsUtils.string.isEmpty(dataSourceName) || !mdo.hasTable(dataSourceName)) { 
+				log.warn("数据源{}.{}不存在",context.getConfigVo().getRuleChainName(),dataSourceName);
 				continue;
 			}
 			
@@ -406,7 +411,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			}
 			///////////
 			ITable vtable = mdo.getTable(dataSourceName);
-			String orderStr = getOrderbyString(queryOrderBy);
+			String orderStr = getOrderbyString(dataSourceName,queryOrderBy);
 
 			Boolean isFileAutoMapping = (Boolean)selectData.get(Param_FileAutoMapping)  ;
 			if(isFileAutoMapping!=null &&  isFileAutoMapping){
@@ -521,11 +526,12 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			String type = (String) map.get("type");
 			if (type.equals("entityField")) {
 				// 当字段出现.的时候，必须把.去除
-				if (sourceName.indexOf(".") != -1) {
-					sourceName = sourceName.substring(sourceName.lastIndexOf(".") + 1);
+				int sourceDotIdx,destDotIdx;
+				if ((sourceDotIdx = sourceName.lastIndexOf('.')) != -1) {
+					sourceName = sourceName.substring(sourceDotIdx + 1);
 				}
-				if (destName.indexOf(".") != -1) {
-					destName = destName.substring(destName.lastIndexOf(".") + 1);
+				if ((destDotIdx = destName.lastIndexOf('.')) != -1) {
+					destName = destName.substring(destDotIdx + 1);
 				}
 				Map<String, Object> fieldMap = new HashMap<String, Object>();
 				fieldMap.put("sourceName", sourceName);
@@ -578,7 +584,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		Set<String> sourceFields = null;
 		try {
 			//sourceFields = source.getMeta().getColumnNames();
-			sourceFields = data.getColumnNames();
+			sourceFields = data.getColumnNamesAll();
 		} catch (SQLException e1) {
 			log.error("发生SQL错误，忽略",e1);
 		}
@@ -708,8 +714,8 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 	 * @param queryOrderBy
 	 * @return
 	 */
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private String getOrderbyString(Object queryOrderBy) {
+	@SuppressWarnings({ "unchecked"})
+	private String getOrderbyString(String dataSourceName, Object queryOrderBy) {
 		
 		if (queryOrderBy == null || !(queryOrderBy instanceof List)) {
 			return null;
@@ -719,22 +725,37 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			return null;
 		}
 		/////////////////
-		String orderStr = "";
+		StringBuilder orderStr = new StringBuilder();
+		boolean appendCheck = true;
 		for (Map<String, Object> map: orderFieldList) {
 			String fieldName = (String) map.get("field");
 			String type = (String) map.get("type");
 			if (type == null) {
 				type = "asc";
 			}
-			if (orderStr.length() > 0) {
-				orderStr += ",";
+			appendCheck = true;
+			
+			int idx =fieldName.lastIndexOf('.');
+			if (idx>=0) {
+				String t = fieldName.substring(0,idx);
+				//历史可能残留了不同步的表名，如果不同的表名就忽略(开发系统担心有残留数据导致不兼容加的逻辑--赵衍 20210923)
+				if(t.equalsIgnoreCase(dataSourceName)) { 
+					fieldName = fieldName.substring(idx+ 1);
+				}
+				else {
+					appendCheck = false;
+					log.info("历史可能残留了不同步的表名，如果不同的表名就忽略(开发系统担心有残留数据导致不兼容加的逻辑--赵衍 20210923),要求表名({})实际({})",dataSourceName,t);
+				}
 			}
-			if (fieldName.indexOf(".") != -1) {
-				fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
+			
+			if(appendCheck) {
+				if (orderStr.length() > 0) {
+					orderStr.append(',');
+				}
+				orderStr.append(fieldName).append(' ').append(type);
 			}
-			orderStr += fieldName + " " + type;
 		} 
-		return orderStr;
+		return orderStr.toString();
 	}
 
 	/**
@@ -832,25 +853,30 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		}
 		
 
+		IVSQLQuery query = VDS.getIntance().getVSQLQuery();
 		// 查询附加条件组装
 		IVSQLConditions extraSqlConditions = null;
 		if(!VdsUtils.string.isEmpty(extraQueryCondition)){
-			IQueryParse vparse= VDS.getIntance().getVSqlParse();
-			extraSqlConditions = vparse.getVSQLConditions(extraQueryCondition);
+			//IQueryParse vparse= VDS.getIntance().getVSqlParse();
+			extraSqlConditions = query.getVSQLConditions(extraQueryCondition);
 			//extraSqlConditions = IVSQLConditionsFactory.getService().init();
 			//extraSqlConditions.setSqlConStr(extraQueryCondition);
 			extraSqlConditions.setLogic(VSQLConditionLogic.AND);
 		}
 		long start=System.currentTimeMillis();
-		IVSQLQuery query = VDS.getIntance().getVSQLQuery();
-		
-		IDataView dataView ;
-		if (pageSizeVo.getRecordStart() <= 0 || pageSizeVo.getPageSize() <= 0) {
-			dataView = query.loadQueryData(queryName, queryParams, extraSqlConditions, true);
-		} else {
-			dataView = query.loadQueryData(queryName, queryParams, extraSqlConditions,
-					pageSizeVo.getRecordStart(), pageSizeVo.getPageSize(), true);
+		IVSQLOrderBy vorder;
+		if(RegisterUtils.string.isEmpty(queryVo.getOrders())){
+			vorder = null;
 		}
+		else {
+			vorder =query.newSQLOrderBy();
+			vorder.setSqlConStr(" order by "+queryVo.getOrders()); 
+		} 
+		int startRecord = pageSizeVo.getRecordStart(),countRecord = pageSizeVo.getPageSize(); 
+
+		IDataView dataView = query.loadQueryData(queryName, queryParams, extraSqlConditions,vorder,
+					startRecord, countRecord, true);
+		
 		long dua=System.currentTimeMillis()-start;
 		if(dua>0){
 			loggerInfo("加载数据库记录查询内部耗时1：【"+dua+"】毫秒");
