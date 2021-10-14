@@ -1,12 +1,14 @@
 package com.toone.v3.platform.rule;
 
 import com.yindangu.v3.business.VDS;
+import com.yindangu.v3.business.http.exception.HttpException;
 import com.yindangu.v3.business.http.model.HttpRequest;
 import com.yindangu.v3.business.http.model.HttpRequestResult;
 import com.yindangu.v3.business.metadata.api.IDataObject;
 import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.plugin.business.api.rule.*;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
+import com.yindangu.v3.business.plugin.execptions.PluginException;
 import com.yindangu.v3.business.vds.IVDS;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
 import org.slf4j.Logger;
@@ -433,7 +435,8 @@ public class CallWebApi implements IRule {
 
         String responseValue = "";
         try {
-            if (result.exceptionCaught() == null) {
+        	HttpException ex = result.exceptionCaught();
+            if (ex == null) {
                 // 请求成功
                 targetValue = true;
                 log.info("请求状态码 200");
@@ -460,9 +463,10 @@ public class CallWebApi implements IRule {
                     return resultMap;
                 }
             } else {
-                log.info("请求状态码 " + result.exceptionCaught().getRespCode());
-                // throw new Exception("请求CallWebApi异常", result.exceptionCaught());
-                throw new ConfigException("请求WebApi异常", result.exceptionCaught());
+            	String msg ="返回值：-1 请求失败, 返回值：-2 请求超时：-3 请求成功但读取body发生超时\r\n"
+                		+ webAPISite + "请求状态码 " 
+                		+ ex.getRespCode(); 
+                throw new ConfigException(msg, ex);
             }
 
             if (!isEmpty(invokeTarget)) {
@@ -494,11 +498,16 @@ public class CallWebApi implements IRule {
                     context.getVObject().setContextObject(respondTargetTypeEnum, respondTarget, responseValue);
                 }
             }
-        } catch (Exception e) {
-            throw new RuntimeException("请求WebApi异常", e);
+            return null;
+        }
+        catch(PluginException e) {
+            log.error("请求WebApi异常:"+webAPISite,e);
+        	throw e;
+        }
+        catch (Exception e) {
+            throw new RuntimeException("请求WebApi异常:"+webAPISite, e);
         }
 
-        return null;
     }
 
 
@@ -628,7 +637,8 @@ public class CallWebApi implements IRule {
 
         String responseValue = "";
         try {
-            if (result.exceptionCaught() == null) {
+        	HttpException ex = result.exceptionCaught();
+            if (ex == null) {
                 // 请求成功
                 targetValue = true;
                 log.info("请求状态码 200");
@@ -640,8 +650,10 @@ public class CallWebApi implements IRule {
                     return result.getResult();
                 }
             } else {
-                log.warn("请求状态码 " + result.exceptionCaught().getRespCode());
-                throw new ConfigException("请求WebApi异常", result.exceptionCaught());
+            	String msg ="返回值：-1 请求失败, 返回值：-2 请求超时：-3 请求成功但读取body发生超时\r\n"
+                		+ webAPISite + "请求状态码 " 
+                		+ ex.getRespCode(); 
+                throw new ConfigException(msg, ex);
             }
 
             if (!isEmpty(invokeTarget)) {
@@ -668,11 +680,17 @@ public class CallWebApi implements IRule {
                     context.getVObject().setContextObject(ruleSetVar, respondTarget, responseValue);
                 }
             }
-        } catch (Exception e) {
-            throw new ConfigException("请求WebApi异常", e);
+            return null;
+        } 
+
+        catch(PluginException e) {
+            log.error("请求WebApi异常:"+webAPISite,e);
+        	throw e;
+        }
+        catch (Exception e) {
+            throw new ConfigException("请求WebApi异常:"+webAPISite, e);
         }
 
-        return null;
     }
 
     /**
