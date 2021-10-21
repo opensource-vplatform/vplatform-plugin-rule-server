@@ -463,9 +463,8 @@ public class CallWebApi implements IRule {
                     return resultMap;
                 }
             } else {
-            	String msg ="返回值：-1 请求失败, 返回值：-2 请求超时：-3 请求成功但读取body发生超时\r\n"
-                		+ webAPISite + "请求状态码 " 
-                		+ ex.getRespCode(); 
+            	String msg = webAPISite + ",请求状态码:" 
+                		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)";  
                 throw new ConfigException(msg, ex);
             }
 
@@ -650,9 +649,8 @@ public class CallWebApi implements IRule {
                     return result.getResult();
                 }
             } else {
-            	String msg ="返回值：-1 请求失败, 返回值：-2 请求超时：-3 请求成功但读取body发生超时\r\n"
-                		+ webAPISite + "请求状态码 " 
-                		+ ex.getRespCode(); 
+            	String msg = webAPISite + ",请求状态码:" 
+                		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)"; 
                 throw new ConfigException(msg, ex);
             }
 
