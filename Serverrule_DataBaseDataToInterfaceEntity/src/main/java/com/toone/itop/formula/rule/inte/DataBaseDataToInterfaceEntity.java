@@ -423,7 +423,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			
 			long start2=System.currentTimeMillis();
 			if(start2 -start1 >10){
-				loggerInfo("加载数据库记录查询耗时前1：【"+ (start2 -start1)+"】毫秒");
+				loggerInfo(vtable.getName() + "加载数据库记录查询耗时前1：【"+ (start2 -start1)+"】毫秒");
 			}
 			
 			IDataView dataView = loadDataView(queryVo,vtable.isQuery(),pageSizeVo);
@@ -434,7 +434,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 
 			long start4 =System.currentTimeMillis(); 
 			if(start4 - start3>10){
-				loggerInfo("加载数据库记录查询耗时前2：【"+(start4 - start3)+"】毫秒");
+				loggerInfo(vtable.getName() + "加载数据库记录查询耗时前2：【"+(start4 - start3)+"】毫秒");
 			}
 			//清空目标DataView
 			clearDataView(destDataView);
@@ -444,7 +444,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			}
 			long start5=System.currentTimeMillis();
 			if(start5-start4>10){
-				loggerInfo("加载数据库记录查询耗时4：【"+(start5-start4)+"】毫秒");
+				loggerInfo(vtable.getName() + "加载数据库记录查询耗时4：【"+(start5-start4)+"】毫秒");
 			}
 		}
 		return context.newOutputVo();
