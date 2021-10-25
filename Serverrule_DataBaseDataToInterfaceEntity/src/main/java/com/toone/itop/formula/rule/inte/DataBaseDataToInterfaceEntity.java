@@ -229,7 +229,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			}
 			long dua=System.currentTimeMillis()-start;
 			if(dua > 50){
-				loggerInfo("加载数据库记录查询耗时：【"+dua+"】毫秒");
+				loggerInfo(queryVo.getDataSourceName() + "加载数据库记录查询耗时：【"+dua+"】毫秒,size=" + dataView.size());
 			}
 			return dataView;
 		}catch (OutOfMemoryError e) {
@@ -366,11 +366,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public IRuleOutputVo evaluate(IRuleContext context) {
-		long start1=System.currentTimeMillis();
-		/*RuleConfig ruleConfig = context.getRuleConfig();
-		List<Map<String, Object>> selectDatas = (List<Map<String, Object>>) ruleConfig
-				.getConfigParamValue(Param_ItemsConfig);
-		*/
+		long startTime = System.currentTimeMillis();
 		List<Map<String, Object>> selectDatas = (List<Map<String, Object>>)context.getPlatformInput(Param_ItemsConfig);
 		if(VdsUtils.collection.isEmpty(selectDatas)) {
 			return context.newOutputVo();//.setMessage("没有映射数据").setSuccess(false);
@@ -380,8 +376,11 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		PageSizeVo pageSizeVo = new PageSizeVo();
 		IRuleVObject ruleVObject = context.getVObject();
 		IMdo mdo = VDS.getIntance().getMdo(); 
+		long endTime = System.currentTimeMillis();
+		loggerInfo( "加载数据库前1：【"+ (endTime -startTime)+"】毫秒");
 		
 		for (Map<String, Object> selectData : selectDatas) {
+			long start1=System.currentTimeMillis();
 			String dataSourceName = (String) selectData.get(Param_SourceName);
 			if (VdsUtils.string.isEmpty(dataSourceName) || !mdo.hasTable(dataSourceName)) { 
 				log.warn("数据源{}.{}不存在",context.getConfigVo().getRuleChainName(),dataSourceName);
@@ -447,6 +446,8 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 				loggerInfo(vtable.getName() + "加载数据库记录查询耗时4：【"+(start5-start4)+"】毫秒");
 			}
 		}
+		long endTime5=System.currentTimeMillis();
+		loggerInfo( "加载数据库后：【"+ (endTime5 -startTime)+"】毫秒");
 		return context.newOutputVo();
 	}
 	private class FieldMapVo implements IFieldMap{
