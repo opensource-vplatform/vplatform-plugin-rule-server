@@ -373,7 +373,7 @@ public class UpdateRecord extends AbstractRule4Tree implements IRule {
 		List<IDataObject> deleteList = dataView.getChanges(DataState.Deleted);
 		deleteLogic(das,targetName, deleteList); 
 	}
-
+	/**字段自动映射处理，（为了应对后期会加字段时，避免每次加字段都要所有的规则都要重新加一次字段，所以就不检查来源实体的字段）*/
 	@SuppressWarnings("rawtypes")
 	private List<Map> handleAutoMappingField(IDataView source, List<Map> mappings, String entityName,String tableName){
 		//VTable table = IMDOFactory.getService().getTable(tableName);
