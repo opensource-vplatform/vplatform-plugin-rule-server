@@ -1,60 +1,15 @@
 package com.toone.itop.formula.rule;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-
-import org.apache.commons.collections.CollectionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.yindangu.v3.business.VDS;
 import com.yindangu.v3.business.formula.api.IFormulaEngine;
-import com.yindangu.v3.business.jdbc.api.model.ColumnType;
-import com.yindangu.v3.business.jdbc.api.model.IColumn;
-import com.yindangu.v3.business.jdbc.api.model.IDataSetMetaData;
-import com.yindangu.v3.business.metadata.api.IDAS;
-import com.yindangu.v3.business.metadata.api.IDataObject;
-import com.yindangu.v3.business.metadata.api.IDataView;
-import com.yindangu.v3.business.plugin.business.api.rule.ContextVariableType;
 import com.yindangu.v3.business.plugin.business.api.rule.IRule;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleVObject;
-import com.yindangu.v3.business.plugin.execptions.BusinessException;
-import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.EnviException;
-import com.yindangu.v3.business.rule.api.parse.IConditionParse;
-import com.yindangu.v3.business.rule.api.parse.ISQLBuf;
-import com.yindangu.v3.business.ruleset.api.IRuleSetExecutor;
-import com.yindangu.v3.business.ruleset.api.IRuleSetExecutorWithEPImplCode;
-import com.yindangu.v3.business.ruleset.api.IRuleSetQuery;
-import com.yindangu.v3.business.ruleset.api.factory.IRemoteRuleSetService;
-import com.yindangu.v3.business.ruleset.api.factory.IRuleSetService;
-import com.yindangu.v3.business.ruleset.api.model.IRuleSet;
-import com.yindangu.v3.business.ruleset.api.model.IRuleSetVariable;
-import com.yindangu.v3.business.ruleset.api.model.IRuleSetVariableColumn;
-import com.yindangu.v3.business.ruleset.api.model.constants.RuleSetInterfaceType;
-import com.yindangu.v3.business.ruleset.api.model.constants.RuleSetVariableScopeType;
-import com.yindangu.v3.business.ruleset.api.model.result.IRuleSetResult;
-import com.yindangu.v3.business.ruleset.api.model.result.IRuleSetResultItem;
-import com.yindangu.v3.business.ruleset.apiserver.async.IRuleSetAsyncExecuteParam;
-import com.yindangu.v3.business.ruleset.apiserver.async.IRuleSetAsyncExecutedHandler;
-import com.yindangu.v3.business.ruleset.apiserver.remote.IRemoteVServerAddress;
-import com.yindangu.v3.business.vcomponent.manager.api.IComponentManager;
-import com.yindangu.v3.business.vcomponent.manager.api.IMetaCodeVo;
-import com.yindangu.v3.business.vcomponent.manager.api.component.ComponentMetaType;
-import com.yindangu.v3.business.vcomponent.manager.api.component.IExtension;
-import com.yindangu.v3.business.vcomponent.manager.api.product.ISpiConfigVo;
-import com.yindangu.v3.business.vcomponent.manager.api.product.ISpiRuleSetVariable;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
 
 /**
@@ -63,23 +18,24 @@ import com.yindangu.v3.platform.plugin.util.VdsUtils;
  * @author Bee
  * 
  */
-public class ExecuteRuleSet  implements IRule{//extends AbstractRule {
+public class ExecuteRuleSet  implements IRule{ 
 
-	private static final Logger logger = LoggerFactory.getLogger(ExecuteRuleSet.class);
 	public static final String D_RULE_NAME = "执行活动集";
 	public static final String D_RULE_CODE = "ExecuteRuleSet";
 	public static final String D_RULE_DESC = "";
 	
-	private static final String Param_InvokeTarget = "invokeTarget";
+	protected static final String Param_InvokeTarget = "invokeTarget";
 	private static final String Param_InvokeRuleSetCode = "ruleSetCode";
 	private static final String Param_InvokeComponentCode = "componentCode";
-	private static final String Param_EpConditionParams = "epConditionParam";
 	private static final String Param_InvokeParams = "invokeParams";
 	private static final String Param_ReturnMapping = "returnMapping";
 	private static final String Param_RemoteUrl = "remoteUrl";
 	protected static final String Param_EventContext = "EventContext";
 	private static final String Param_IsParallelism = "isParallelism";
 	private static final String Param_ExecuteType = "executeType";
+	
+	protected static final String Param_SourceType = "sourceType";
+	protected static final String Param_WindowCode = "windowCode";
 	 
 
 	// 是否统计输入输出变量处理消耗时间
@@ -131,48 +87,45 @@ public class ExecuteRuleSet  implements IRule{//extends AbstractRule {
 	@Override
 	@SuppressWarnings({ "unchecked" })
 	public IRuleOutputVo evaluate(IRuleContext context) {
-		//IRuleConfigVo ruleConfig = context.getConfigVo();//context.getRuleConfig();
-		//Map<String, Object> inputParams = context.getInputParams();
 
 		// 当前规则的实例编号，用于设置兄弟规则链输出信息
 		
-		
 		InvokeTargetVo invokeVo = getInvokeTargetVo(context,(Map<String, Object>) context.getPlatformInput(Param_InvokeTarget)); 
 		
-		//boolean isParallelism = invokeVo.isParallelism();
-		
-		
 		// 活动集调用入参信息
-		//List<Map<String, Object>> invokeParams = (List<Map<String, Object>>) ruleConfig.getConfigParamValue(Param_InvokeParams);
 		List<Map<String, Object>> invokeParams = (List<Map<String, Object>>) context.getPlatformInput(Param_InvokeParams);
 
 		// 活动集返回信息设置
-		//List<Map<String, Object>> returnMappings = (List<Map<String, Object>>) ruleConfig.getConfigParamValue(Param_ReturnMapping);
 		List<Map<String, Object>> returnMappings = (List<Map<String, Object>>) context.getPlatformInput(Param_ReturnMapping);
 
-		Execute ins = new Execute();
-		return ins.execute(context,invokeVo,invokeParams,returnMappings);
+		return execute(context,invokeVo,invokeParams,returnMappings);
 		
 	}
 	
-	private Map<String,Object> parseEpConditionParams(List<Map<String,Object>> epConditionParams){
-		if(CollectionUtils.isEmpty(epConditionParams)){
-			return null;
+	private IRuleOutputVo execute(IRuleContext context, InvokeTargetVo invokeVo, List<Map<String, Object>> invokeParams, List<Map<String, Object>> returnMappings) {
+		// 是否注解触发器
+		boolean isAnnotationTrigger = isAnnotationTrigger(context, invokeVo);
+		if(isAnnotationTrigger) {
+			ExecuteAnnotaionTrigger  trigger = new ExecuteAnnotaionTrigger();
+			return trigger.execute(context, invokeVo, invokeParams, returnMappings);
+		}else {
+			Execute ins = new Execute();
+			return ins.execute(context,invokeVo,invokeParams,returnMappings);
 		}
-		IFormulaEngine en = VDS.getIntance().getFormulaEngine();
-		Map<String,Object> datas = new HashMap<String, Object>();
-		for (int i = 0; i < epConditionParams.size(); i++) {
-			Map<String,Object> params = epConditionParams.get(i);
-			String code = (String)params.get("paramCode");
-			String paramValue = (String)params.get("paramValue");
-			Object tmpValue = null;
-			if(!VdsUtils.string.isEmpty(paramValue)){
-				tmpValue = en.eval(paramValue);
-			}
-			datas.put(code, tmpValue);
-		}
-		return datas;
+	}
+	
+	// 是否注解触发器
+	@SuppressWarnings("unchecked")
+	private boolean isAnnotationTrigger(IRuleContext context, InvokeTargetVo invokeVo) {
 		
+		Map<String, Object> invokeTarget = (Map<String, Object>) context.getPlatformInput(Param_InvokeTarget);
+		String compCode = invokeVo.getComponentCode();
+		String metaCode = invokeVo.getRuleSetCode();
+		String windowCode = (String) invokeTarget.get(Param_WindowCode);
+		String metaType = (String) invokeTarget.get(Param_SourceType);
+		
+		Boolean isTrigger = VDS.getIntance().getAnnotationEngine().isTrigger(compCode, metaCode, windowCode, metaType);
+		return isTrigger;
 	}
 	
 
