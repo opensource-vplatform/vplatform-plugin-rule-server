@@ -1,14 +1,40 @@
 package com.toone.v3.platform.rule;
 
-import com.toone.v3.platform.rule.model.*;
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.toone.v3.platform.rule.model.ColumnImportCfg;
+import com.toone.v3.platform.rule.model.ExcelImportDataCfg;
+import com.toone.v3.platform.rule.model.FModelMapper;
+import com.toone.v3.platform.rule.model.FProperty;
+import com.toone.v3.platform.rule.model.TreeColumn;
+import com.toone.v3.platform.rule.model.TreeType;
 import com.toone.v3.platform.rule.util.FPOExcel;
-import com.toone.v3.platform.rule.util.ObjPropertyUtil;
+import com.toone.v3.platform.rule.util.ObjPropertyUtil2;
 import com.yindangu.commons.CaseInsensitiveLinkedMap;
 import com.yindangu.v3.business.VDS;
 import com.yindangu.v3.business.file.api.model.IAppFileInfo;
 import com.yindangu.v3.business.jdbc.api.model.ColumnType;
 import com.yindangu.v3.business.jdbc.api.model.DataState;
 import com.yindangu.v3.business.jdbc.api.model.IDataSetMetaData;
+import com.yindangu.v3.business.jdbc.api.model.ITable;
 import com.yindangu.v3.business.metadata.api.IDAS;
 import com.yindangu.v3.business.metadata.api.IDataObject;
 import com.yindangu.v3.business.metadata.api.IDataView;
@@ -18,16 +44,13 @@ import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
 import com.yindangu.v3.business.plugin.execptions.BusinessException;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
+import com.yindangu.v3.business.plugin.execptions.EnviException;
+import com.yindangu.v3.business.plugin.execptions.PluginException;
 import com.yindangu.v3.business.vds.IVDS;
+import com.yindangu.v3.platform.excel.MergedType;
+import com.yindangu.v3.platform.excel.SheetReader;
+import com.yindangu.v3.platform.excel.SheetReader.SheetReaderBuilder;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.InputStream;
-import java.math.BigDecimal;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * @Author xugang
@@ -43,217 +66,499 @@ public class ImportExcelToDBOrEntity implements IRule {
     // 约定的树型编码每级的长度
     private int innerCodeLength = 5;
 
-    @Override
+    @SuppressWarnings("unchecked")
+	@Override
     public IRuleOutputVo evaluate(IRuleContext context) {
         long starTime = System.currentTimeMillis();
         String fileId = getVDS().getFormulaEngine().eval(context.getPlatformInput("fileSource").toString()); // 文件标识
-        if (fileId != null && !fileId.equals("")) {
-
-            InputStream inputStream = null;
-            List<Map<String, Object>> itemsList = (List<Map<String, Object>>) context.getPlatformInput("items");
-            try {
-                for (Map<String, Object> singleItem : itemsList) {
-                    IAppFileInfo appFileInfo = getVDS().getFileOperate().getFileInfo(fileId);
-                    if (appFileInfo == null) {
-                        throw new ConfigException("后台导入Excel规则，获取文件标识为【" + fileId + "】文件对象，请检查");
-                    }
-                    inputStream = appFileInfo.getDataStream();
-                    importToDB(context, singleItem, inputStream);
-                }
-            } catch (Exception e) {
-                throw new ConfigException("后台导入Excel规则，执行失败！\n" + e.getMessage(), e);
-            } finally {
-                try {
-                    if (inputStream != null) {
-                        inputStream.close();
-                    }
-                } catch (Exception e) {
-                    logger.warn("后台导入Excel规则，关闭流异常");
-                }
-            }
-        } else {
-            throw new ConfigException("后台导入Excel规则 ，文件标识不能为空，请检查");
+        if (fileId == null || fileId.length()==0) { 
+            throw new ConfigException("后台导入Excel规则，获取文件ID标识为空，请检查");
         }
-        logger.info("后台导入Excel数据,总时长：" + (System.currentTimeMillis() - starTime) + "毫秒");
 
-        IRuleOutputVo outputVo = context.newOutputVo();
-        outputVo.put(null);
-        return outputVo;
+        InputStream inputStream = null;
+        try {
+            List<Map<String, Object>> itemsList = (List<Map<String, Object>>) context.getPlatformInput("items");
+            for (Map<String, Object> singleItem : itemsList) {
+                IAppFileInfo appFileInfo = getVDS().getFileOperate().getFileInfo(fileId);
+                if (appFileInfo == null) {
+                    throw new ConfigException("后台导入Excel规则，获取文件标识为【" + fileId + "】文件对象，请检查");
+                }
+                inputStream = appFileInfo.getDataStream();
+                importToDB(context, singleItem, inputStream);
+                close(inputStream);
+            }
+            
+            IRuleOutputVo outputVo = context.newOutputVo();
+            outputVo.put(null);
+            return outputVo;
+        }
+        catch(PluginException e) {
+        	throw e;
+        }
+        catch (Exception e) {
+            throw new ConfigException("后台导入Excel规则，执行失败！\n" + e.getMessage(), e);
+        } finally {
+        	logger.info("后台导入Excel数据,总时长：" + (System.currentTimeMillis() - starTime) + "毫秒");
+        	close(inputStream);
+        }        
+    }
+    private void close(Closeable os) {
+    	if(os == null) {
+    		return ;
+    	}
+    	try {
+    		os.close();
+    	}
+    	catch(IOException e) {
+    		logger.error("",e);
+    	}
+    }
+    
+    private class ParamsVo{
+    	private IDataView targetDataView;
+    	private FModelMapper modelMapper;
+    	private int sheetIndex;
+    	private String tableName;
+    	
+    	private boolean tree;
+    	private Map treeStructMap;
+    	private List<String> checkItems;
+    	private Map<String,?> variableMap;
+    	
+    	private IDataView sourceDataView;
+    	private boolean physcTable;
+    	private boolean importBy;
+    	private boolean importId;
+    	private VariableType targetType;
+    	
+    	 /*String bizCodeField = isBizCodeTree ? (String) cfgMap.get(BIZCODEFIELD) : treeCodeColumn;
+         String bizCodeFormat = (String) cfgMap.get(BIZCODEFORMAT);
+         Object bizCodeConfig = null;
+         if (isBizCodeTree)
+             bizCodeConfig = getVDS().getFormulaEngine().eval((String) cfgMap.get(BIZCODECONFIG));
+             */
+    	private String bizCodeField  ;
+    	private String bizCodeFormat  ;
+    	private String bizCodeConfig  ;
+		public IDataView getTargetDataView() {
+			return targetDataView;
+		}
+
+		public void setTargetDataView(IDataView targetDataView) {
+			this.targetDataView = targetDataView;
+		}
+
+		public FModelMapper getModelMapper() {
+			return modelMapper;
+		}
+
+		public void setModelMapper(FModelMapper modelMapper) {
+			this.modelMapper = modelMapper;
+		}
+
+		public int getSheetIndex() {
+			return sheetIndex;
+		}
+
+		public void setSheetIndex(int sheetIndex) {
+			this.sheetIndex = sheetIndex;
+		}
+
+		public boolean isTree() {
+			return tree;
+		}
+
+		public void setTree(boolean tree) {
+			this.tree = tree;
+		}
+
+		public Map getTreeStructMap() {
+			return treeStructMap;
+		}
+
+		public void setTreeStructMap(Map treeStructMap) {
+			this.treeStructMap = treeStructMap;
+		}
+		/**检查重复的字段名*/
+		public List<String> getCheckItems() {
+			return checkItems;
+		}
+		/**检查重复的字段名*/
+		public void setCheckItems(List<String> checkItems) {
+			this.checkItems = checkItems;
+		}
+
+		/**配置了表达式的值(不会null)*/
+		public Map<String, ?> getVariableMap() {
+			return variableMap;
+		}
+		/**配置了表达式的值*/
+		public void setVariableMap(Map<String, ?> variableMap) {
+			this.variableMap = variableMap;
+		}
+		/**内存表,用于获取字段类型*/
+		public IDataView getSourceDataView() {
+			return (physcTable ? null : sourceDataView);
+		}
+		/**内存表*/
+		public void setSourceDataView(IDataView sourceDataView) {
+			this.sourceDataView = sourceDataView;
+		}
+		/**true:物理表,false:内存表*/
+		public boolean isPhyscTable() {
+			return (targetType == VariableType.Table);
+		}
+		public VariableType getTargetType() {
+			return targetType;
+		}
+
+		public void setTargetType(VariableType targetType) {
+			this.targetType = targetType;
+		}
+		public String getTableName() {
+			return tableName;
+		}
+
+		public void setTableName(String tableName) {
+			this.tableName = tableName;
+		}
+		/**  是否导入业务编码*/
+		public boolean isImportBy() {
+			return importBy;
+		}
+		/**  是否导入业务编码*/
+		public void setImportBy(boolean importBy) {
+			this.importBy = importBy;
+		}
+
+		public boolean isImportId() {
+			return importId;
+		}
+
+		public void setImportId(boolean importId) {
+			this.importId = importId;
+		}
+
+		public String getBizCodeField() {
+			return bizCodeField;
+		}
+
+		public void setBizCodeField(String bizCodeField) {
+			this.bizCodeField = bizCodeField;
+		}
+
+		public String getBizCodeFormat() {
+			return bizCodeFormat;
+		}
+
+		public void setBizCodeFormat(String bizCodeFormat) {
+			this.bizCodeFormat = bizCodeFormat;
+		}
+
+		public String getBizCodeConfig() {
+			return bizCodeConfig;
+		}
+
+		public void setBizCodeConfig(String bizCodeConfig) {
+			this.bizCodeConfig = bizCodeConfig;
+		}
+    	
+    }
+    // 20170423 最新
+	protected void importToDB(IRuleContext context, Map<String, Object> cfgMap, InputStream inputStream) {
+    	ParamsVo pars = parseParamsVo(context, cfgMap);
+    	List<Map<String, Object>> records = readExcelData(pars, inputStream);
+    	IDataView dv = updateToDataBase(pars, records);
+    	// 更新数据
+        handleResultDataView(dv, pars.getTableName(), pars.getTargetType(), context); 
+    	
+    }
+    
+    @SuppressWarnings("unchecked")
+	private ParamsVo parseParamsVo(IRuleContext context, Map<String, Object> cfgMap) {
+    	 List<Map<String, Object>> mappings = (List<Map<String, Object>>) cfgMap.get("mapping");// 配置映射
+         String tableName = (String) cfgMap.get("target"); // 导入的目标表名
+         VariableType targetType =VariableType .getInstanceType((String) cfgMap.get("targetType")); // 目标类型
+         //boolean isPhyscTable = targetType.equals("table"); // 是否物理表
+         //int startRow = Integer.valueOf((String) cfgMap.get("dataStartRow")); //开始行号
+
+
+         ParamsVo vo = new ParamsVo();
+         vo.setTargetType(targetType);
+         // 重复处理方式，目前仅是替换
+         String repeatOperation = (String) cfgMap.get("repeatOperation");
+         if (VdsUtils.string.isEmpty(repeatOperation)) {
+             repeatOperation = "replace";
+         }
+
+         {
+	         Map<String, Object> varMap = new HashMap<String, Object>(); // 配置了表达式的值
+	         boolean isImportId = getOtherData(mappings, varMap); // 是否存在id导入
+	         List<String> checkItems = (List<String>) cfgMap.get("checkItems"); // 获取检查重复的字段
+	         // 如果不导入id，就不检查id，其他情况都检查id
+	         if (VdsUtils.collection.isEmpty(checkItems) ) {
+	             checkItems = new ArrayList<String>();
+	         }
+	         if (isImportId && !checkItems.contains("id")) {
+	             checkItems.add("id");
+	         }
+	         vo.setCheckItems(checkItems);
+	         vo.setVariableMap(varMap);
+	         vo.setImportId(isImportId);
+         }
+
+         String cfgStr = VdsUtils.json.toJson(cfgMap);
+         ExcelImportDataCfg dCfg = VdsUtils.json.fromJson(cfgStr, ExcelImportDataCfg.class);
+         IDataView sourceDataView = null;
+     
+
+         IDataView dataView;
+         if (vo.isPhyscTable()) {
+        	 dataView = getVDS().getDas().createDataViewByName(tableName);// 物理表
+         } else {
+        	 dataView = getDataViewWithType(context, tableName, targetType);// 内存表
+        	 sourceDataView = dataView;//getDataViewWithType(context, tableName, targetType);// 用于获取字段类型
+         }
+
+         FModelMapper mapper = getModelMapperByExcelImportCfg(dCfg, sourceDataView);
+         int sheetIndex = -2;
+         try {
+        	 Object sheetNum = cfgMap.get("sheetNum");
+             sheetNum = getVDS().getFormulaEngine().eval(sheetNum.toString());
+             sheetIndex = Integer.parseInt(sheetNum.toString());
+         } catch (Exception e) {
+             throw new ConfigException("获取配置的sheet序号失败", e);
+         }
+
+         String importBy = (String) cfgMap.get(IMPORTBY);
+         vo.setImportBy(("filiation").equalsIgnoreCase(importBy));
+         
+         vo.setTargetDataView(dataView);
+         vo.setSourceDataView(sourceDataView);
+         //vo.setPhyscTable(isPhyscTable);
+         vo.setModelMapper(mapper);
+         vo.setSheetIndex(sheetIndex);
+         vo.setTableName(tableName);
+         
+         {
+        	// 是否树(当)
+             List<Map> treeStruct = (List<Map>) cfgMap.get("treeStruct");
+             Map treeStructMap = (treeStruct == null || treeStruct.isEmpty() ? null : treeStruct.get(0));//
+             boolean isTree =( treeStructMap != null && !TreeType.BizCode.equals(treeStructMap.get("type")));
+             vo.setTree(isTree);
+             vo.setTreeStructMap(treeStructMap);
+         }
+         
+         String bizCodeField = (String) cfgMap.get(BIZCODEFIELD)  ;
+         String bizCodeFormat = (String) cfgMap.get(BIZCODEFORMAT);
+         String bizCodeConfig = (String)cfgMap.get(BIZCODECONFIG);
+         vo.setBizCodeConfig(bizCodeConfig);
+         vo.setBizCodeFormat(bizCodeFormat);
+         vo.setBizCodeField(bizCodeField);
+         return vo;
     }
 
-    // 20170423 最新
-    public IDataView importToDB(IRuleContext context, Map<String, Object> cfgMap, InputStream inputStream) {
+    /**
+     * 读取excel数据
+     * @param pars
+     * @param inputStream
+     * @return
+     */
+    
+    private List<Map<String, Object>> readExcelData(ParamsVo pars, InputStream inputStream){
+    	FModelMapper mapper = pars.getModelMapper();
+        IDataSetMetaData dataSetMetaData = pars.getTargetDataView().getMetadata(); 
+        int sheetIndex = pars.getSheetIndex();
+        
+        /*int sheetno = 0;
+        try {
+            sheetNum = getVDS().getFormulaEngine().eval(sheetNum.toString());
+            sheetno = Integer.parseInt(sheetNum.toString());
+        } catch (Exception e) {
+            throw new ConfigException("获取配置的sheet序号失败", e);
+        }*/
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        // 读取Excel的数据
+        FPOExcel excel = new FPOExcel();
+        SheetReaderBuilder rsb = new SheetReader.SheetReaderBuilder();
+        rsb.setInputStream(inputStream)
+        		.setTable(dataSetMetaData)
+        		.setSheetIndex(sheetIndex)
+        		.setFieldMap(mapper)
+        		.setMerged(MergedType.MergedALL);
+        		
+        result = excel.readExcelSheet(rsb);
+        return result; 
+    }
+    /**
+     * 检查重复， 保存Excel的全部id值，如果不导入id，则无数据。用于判断是否有重复id导入。
+     * @param vo
+     * @param excelRecords
+     * @return 获取检查重复字段在Excel中的数据
+     */
+	private Map<String/** 字段名 */, Set<Object>/** 字段值 */ > checkExistRecord(ParamsVo vo, List<Map<String, Object>> excelRecords) {
+		Map<String, ?> variableMap = vo.getVariableMap();
+		List<String> checkItems = vo.getCheckItems();
+		Map<String, Set<Object>> sourceFieldData = new LinkedHashMap<String, Set<Object>>(); // 获取检查重复字段在Excel中的数据
 
-        List<Map<String, Object>> mappings = (List<Map<String, Object>>) cfgMap.get("mapping");// 配置映射
-        String tableName = (String) cfgMap.get("target"); // 导入的目标表名
-        String targetType = (String) cfgMap.get("targetType"); // 目标类型
-        boolean isPhyscTable = targetType.equals("table"); // 是否物理表
-        int startRow = Integer.valueOf((String) cfgMap.get("dataStartRow")); //开始行号
+		for (Map<String, Object> map : excelRecords) {
 
-        // 是否树(当)
-        List<Map> treeStruct = (List<Map>) cfgMap.get("treeStruct");
-        Map treeStructMap = (treeStruct == null || treeStruct.isEmpty()) ? null : treeStruct.get(0);//
-        boolean isTree = treeStructMap != null && !TreeType.BizCode.equals(treeStructMap.get("type"));
+			// 把其他表达式的值集合加到数据集里
+			map.putAll(variableMap);
+			for (String item : checkItems) {
+				Object value = map.get(item);
+				Set<Object> rds = sourceFieldData.get(item);
+				if (rds == null) {
+					rds = new HashSet<Object>();
+					sourceFieldData.put(item, rds);
+				}
+				if (value != null) {
+					rds.add(value);
+				}
+			}
+		}
+		return sourceFieldData;
+	}
 
-        // 重复处理方式，目前仅是替换
-        String repeatOperation = (String) cfgMap.get("repeatOperation");
-        if (cfgMap.get("repeatOperation") == null || repeatOperation.equals("")) {
-            repeatOperation = "replace";
+	/**
+	 * 取Excel的全部记录的id字段值，如果不导入id，则无为空list。用于判断是否有重复id导入
+	 * 
+	 * @param excelRecords
+	 * @return
+	 */
+	private Set<String> getRecordIds(List<Map<String, Object>> excelRecords) {
+		Set<String> excelIds = new HashSet<String>();
+		int size = 0;
+		for (Map<String, Object> map : excelRecords) {
+			String rowId = (String) map.get("id");
+			if (rowId != null) {
+				size++;
+				excelIds.add(rowId);
+			}
+		}
+		if (excelIds.size() != size) {
+			throw new BusinessException("后台导入Excel规则 ，Excel数据存在id重复，请检查");
+		}
+		return excelIds;
+	}
+	private IDataView updateToDataBase(ParamsVo vo, List<Map<String, Object>> excelRecords) { 
+		try {
+			return updateToDataBase0(vo, excelRecords);
+		}
+        catch(PluginException ex) {
+        	Matcher matcher = Pattern.compile(".*第(\\d+)行.*").matcher(ex.getMessage()); 
+        	if(matcher.matches()) {
+        		FModelMapper mp = vo.getModelMapper();
+                int beforeRow = Integer.valueOf(matcher.group(1));
+                int row = beforeRow + (mp == null ?1 : mp.getStartRow());
+                String str = ex.getMessage().replaceFirst("第" + beforeRow + "行", "第" + row + "行");
+                throw new EnviException(str);
+            } else {
+                throw ex;
+            }
         }
-
-        Map<String, Object> varMap = new HashMap<String, Object>(); // 配置了表达式的值
-        boolean isImportId = getOtherData(mappings, varMap); // 是否存在id导入
-        List<String> checkItems = (List<String>) cfgMap.get("checkItems"); // 获取检查重复的字段
-        // 如果不导入id，就不检查id，其他情况都检查id
-        if (checkItems == null || checkItems.size() == 0) {
-            checkItems = new ArrayList<String>();
+        catch (RuntimeException ex) {
+        	throw ex;
         }
-        if (isImportId && !checkItems.contains("id")) {
-            checkItems.add("id");
-        }
-
-        String cfgStr = VdsUtils.json.toJson(cfgMap);
-        ExcelImportDataCfg dCfg = VdsUtils.json.fromJson(cfgStr, ExcelImportDataCfg.class);
-        IDataView sourceDataView = null;
-        if (!isPhyscTable) {
-            sourceDataView = getDataViewWithType(context, tableName, targetType);// 用于获取字段类型
-        }
-
-        FModelMapper mapper = getModelMapperByExcelImportCfg(dCfg, isPhyscTable, sourceDataView);
-        IDataView dataView = null;
-        if (!isPhyscTable) {
-            dataView = getDataViewWithType(context, tableName, targetType);// 内存表
-        } else {
-            dataView = getVDS().getDas().createDataViewByName(tableName);// 物理表
-        }
-        IDataSetMetaData dataSetMetaData = dataView.getMetadata();
-        List<Map<String, Object>> result = getExcelData(cfgMap.get("sheetNum"), dCfg, mapper, inputStream, dataSetMetaData); // excel数据
-        //long start = System.currentTimeMillis();
-
+	}
+    private IDataView updateToDataBase0(ParamsVo vo, List<Map<String, Object>> excelRecords) { 
         //过滤树字段
-        String filterTreeFied = "";
-        if (isTree) {
-            filterTreeFied = (String) treeStructMap.get(TreeColumn.BusiFilterField.columnName());
-        }
-        Map<String, List<Map<String, Object>>> groupResult = new HashMap<String, List<Map<String, Object>>>();
-        if (filterTreeFied.equalsIgnoreCase("")) { //没有过滤树字段
-            groupResult.put("nogroup", result);
-        } else {
-
-            //将Excel数据按照过滤树字段进行分组
-            for (Map<String, Object> map : result) {
-                String fiterValue = (String) map.get(filterTreeFied) == null ? ((String) varMap.get(filterTreeFied)) : ((String) map.get(filterTreeFied));//过滤字段值
-                if (fiterValue == null || fiterValue.trim().equals("")) { //过滤字段值为空
-                    throw new BusinessException("过滤树字段值为空");
-                }
-
-                if (groupResult.get(fiterValue) == null) {
-                    List<Map<String, Object>> fiterList = new ArrayList<Map<String, Object>>();
-                    fiterList.add(map);
-                    groupResult.put(fiterValue, fiterList);
-                } else {
-                    groupResult.get(fiterValue).add(map);
-
-                }
-            }
-        }
-        int groupNum = 0; //分组序号
-        for (String key : groupResult.keySet()) {
-            result = groupResult.get(key);
-
-            Set<String> excelIds = new HashSet<String>(); // 保存Excel的全部id值，如果不导入id，则无数据。用于判断是否有重复id导入。
-            Map<String, Set<Object>> sourceFieldData = new LinkedHashMap<String, Set<Object>>(); // 获取检查重复字段在Excel中的数据
-            for (String item : checkItems) {
-                sourceFieldData.put(item, new HashSet());
-            }
-
-            for (Map<String, Object> map : result) {
-                String rowId = (String) map.get("id");
-                if (rowId != null) {
-                    if (excelIds.contains(rowId)) {
-                        throw new BusinessException("后台导入Excel规则 ，Excel数据存在id重复，请检查");
-                    }
-                    excelIds.add(rowId);
-                }
-
-                // 把其他表达式的值集合加到数据集里
-                if (varMap != null && !varMap.isEmpty()) {
-                    map.putAll(varMap);
-                }
-
-                for (String item : checkItems) {
-                    Object value = null;
-                    if ("id".equals(item)) {
-                        value = rowId;
-                    } else {
-                        value = map.get(item);
-                    }
-                    if (value != null) {
-                        sourceFieldData.get(item).add(value);
-                    }
-                }
-            }
-            // 获取重复记录数据
-            Map<String, Object> repeatData = null;
+    	Map treeStructMap = vo.getTreeStructMap(); 
+    	Map<String, List<Map<String, Object>>> groupResult =splitGroupExcelData(vo.isTree(),treeStructMap, excelRecords, vo.getVariableMap());
+    	List<String> checkItems = vo.getCheckItems();
+       //int groupNum = 0; //分组序号
+        IDataView targetDataView = vo.getTargetDataView();
+        boolean physcTable = vo.isPhyscTable();
+       
+        
+        for (List<Map<String, Object>> groupRecods : groupResult.values()) {
+        	Map<String/**字段名*/, Set<Object>/**字段值*/> sourceFieldData = checkExistRecord(vo, excelRecords);
+        	Set<String> excelIds = getRecordIds(excelRecords);
+           
             // 最后结果
-            if (!isTree) {// 树结构为空，则按照普通表/实体导入
-                // 查询重复数据
-                repeatData = getRepeatData(sourceFieldData, sourceDataView, excelIds, tableName, isPhyscTable, checkItems);
+            if (!vo.isTree()) {// 树结构为空，则按照普通表/实体导入 
+            	 // 查询重复数据
+            	RepeatVo repeatData =  getRepeatData(sourceFieldData, vo, excelIds);
 
-                try {
+                
                     // 处理数据
                     // 完善异常，报错的行号为--startRow+excel中的行号
-                    dataView = handleCommonData(repeatData, result, dataView, checkItems, isPhyscTable);
-                } catch (RuntimeException ex) {
-                    Matcher matcher = Pattern.compile(".*第(\\d+)行.*").matcher(ex.getMessage());
-                    if (matcher.matches()) {
-                        int beforeRow = Integer.valueOf(matcher.group(1));
-                        int row = beforeRow + startRow;
-                        String str = ex.getMessage().replaceFirst("第" + beforeRow + "行", "第" + row + "行");
-                        throw new RuntimeException(str);
-                    } else {
-                        throw new RuntimeException(ex);
-                    }
-                }
-
-                // 更新数据
-                handleResultDataView(dataView, tableName, targetType, context);
-                return null;
+                    handleCommonData(repeatData, groupRecods, targetDataView, checkItems, physcTable);
+                   //handleResultDataView(dataView, tableName, targetType, context);
+                
             }
-
-            // 是否导入业务编码
-            String importBy = (String) cfgMap.get(IMPORTBY);
-            // 业务编码配置
-            boolean isBizCodeTree = false;
-            if (importBy != null && importBy.equals("filiation")) {
-                isBizCodeTree = true;
+            else {	           
+	          
+	            //String selectId = "";
+	            // 得到导入树的层级码每级长度
+	            String treeCodeLength = "00000";
+	            if (isNotEmpty(treeCodeLength)) {
+	                innerCodeLength = treeCodeLength.length();
+	            }
+	            String orderColumn = (String) treeStructMap.get(TreeColumn.OrderField.columnName());
+	            String innerCodeColumn = (String) treeStructMap.get(TreeColumn.TreeCodeField.columnName());
+	            // 获取重复记录数据
+	            RepeatTreeVo repeatData = getRepeatDataTree(vo , sourceFieldData, excelIds, orderColumn, innerCodeColumn);
+	            /*if (physcTable) {
+	                dataView = getVDS().getDas().createDataViewByName(tableName);
+	            } else {
+	                if (groupNum == 0) { //每个分组都用同一个内存表
+	                    dataView = getDataViewWithType(context, tableName, targetType);
+	                }
+	                groupNum++;
+	            }*/
+	           // handelEntityOrTableTree(groupRecods, treeStructMap, targetDataView, selectId, isImportId, isBizCodeTree, cfgMap, tableName, isPhyscTable, repeatData, checkItems);
+	            handelEntityOrTableTree(groupRecods, vo, /*selectId, */  repeatData );
+	            //handleResultDataView(dataView, tableName, targetType, context);
             }
-            String selectId = "";
-            // 得到导入树的层级码每级长度
-            String treeCodeLength = "00000";
-            if (isNotEmpty(treeCodeLength)) {
-                innerCodeLength = treeCodeLength.length();
-            }
-            String orderColumn = (String) treeStructMap.get(TreeColumn.OrderField.columnName());
-            String innerCodeColumn = (String) treeStructMap.get(TreeColumn.TreeCodeField.columnName());
-            repeatData = getRepeatDataTree(tableName, sourceDataView, sourceFieldData, excelIds, orderColumn, innerCodeColumn, isPhyscTable);
-            if (isPhyscTable) {
-                dataView = getVDS().getDas().createDataViewByName(tableName);
-            } else {
-                if (groupNum == 0) { //每个分组都用同一个内存表
-                    dataView = getDataViewWithType(context, tableName, targetType);
-                }
-                groupNum++;
-            }
-            handelEntityOrTableTree(result, treeStructMap, dataView, selectId, isImportId, isBizCodeTree, cfgMap, tableName, isPhyscTable, repeatData, checkItems);
-
-            handleResultDataView(dataView, tableName, targetType, context);
-        }
-        return null;
+        } 
+        return targetDataView;
     }
 
-    private void handleResultDataView(IDataView dataView, String tableName, String targetType, IRuleContext context) {
-        if (dataView != null) {
+    /**
+     * 将Excel数据按照过滤树字段进行分组
+     * @return
+     */
+    private Map<String/**分组名*/,List<Map<String, Object>>/**分组数据*/> splitGroupExcelData
+    	(boolean tree,Map treeStructMap, List<Map<String, Object>> excelRecords,Map<String,?> variableMap){
+    	 String filterTreeFied = null;
+         if (tree) {
+         	Object fd = treeStructMap.get(TreeColumn.BusiFilterField.columnName());
+            filterTreeFied = (String) fd;
+         }
+         
+         Map<String, List<Map<String, Object>>> groupResult = new HashMap<String, List<Map<String, Object>>>();
+         if (VdsUtils.string.isEmpty(filterTreeFied)) { //没有过滤树字段
+             groupResult.put("nogroup", excelRecords);
+         } 
+         else {
+             //将Excel数据按照过滤树字段进行分组
+             for (Map<String, Object> map : excelRecords) {
+                 String fiterValue = (String) map.get(filterTreeFied) ;//过滤字段值
+                 if(fiterValue == null ) {
+                 	fiterValue = (String) variableMap.get(filterTreeFied)  ;
+                 }
+                 if (VdsUtils.string.isEmpty(fiterValue)) { //过滤字段值为空
+                     throw new BusinessException("过滤树字段值为空");
+                 }
+
+                 List<Map<String, Object>> fiterList=groupResult.get(fiterValue);
+                 if (fiterList == null) {
+                     fiterList = new ArrayList<Map<String, Object>>();
+                     groupResult.put(fiterValue, fiterList);
+                 }
+                 fiterList.add(map);
+             }
+         }
+         return groupResult;
+    }
+
+    //private void handleResultDataView(IDataView dataView, String tableName, String targetType, IRuleContext context) {
+    private void handleResultDataView(IDataView dataView, String tableName, VariableType targetType, IRuleContext context) {
+        if (dataView == null) {
+        	return ;
+        }
+        	/*
             try {
                 if (targetType.equals("ruleSetInput") || targetType.equals("ruleSetOutput") || targetType.equals("ruleSetVar")) {
                     context.getVObject().setContextObject(ContextVariableType.getInstanceType(targetType), tableName, dataView);
@@ -268,8 +573,22 @@ public class ImportExcelToDBOrEntity implements IRule {
                 }
             } catch (Exception e) {
                 throw new BusinessException("导入Excel: 执行失败！" + e.getMessage(), e);
-            }
+            }*/
+        if(targetType == null) {
+        	throw new ConfigException("导入Excel: 执行失败,VariableType不能为空！");
         }
+        switch (targetType) {
+		case RuleSetInput:
+		case RuleSetOutput:
+		case RuleSetVar:
+			context.getVObject().setContextObject(targetType.getType(), tableName, dataView);
+			break;
+		case Table:
+			dataView.acceptChanges();
+			break;
+		default:
+			throw new ConfigException("不支持类型[" + targetType + "]的变量值设置.");
+		}
     }
 
     /**
@@ -313,23 +632,25 @@ public class ImportExcelToDBOrEntity implements IRule {
      * @param isPhyscTable
      * @return
      */
-    private IDataView handleCommonData(Map<String, Object> repeatDataMap, List<Map<String, Object>> excelData, IDataView dataView, List<String> checkItems, boolean isPhyscTable) {
+    private void handleCommonData(RepeatVo repeatDataMap, List<Map<String, Object>> excelData, IDataView dataView, List<String> checkItems, boolean isPhyscTable) {
         try {
 
-            // 在表中存在，却不符合检查条件的id列表
-            List<String> existId = (List<String>) repeatDataMap.get("existId");
             // 符合重复条件的id列表
-            Map<String, List<Object>> repeatData = (Map<String, List<Object>>) repeatDataMap.get("matchData");
+            Map<String, List<Object>> repeatData = repeatDataMap.getMatchData();//(Map<String, List<Object>>) repeatDataMap.get("matchData");
             if (repeatData.size() == 0) { // 全新增批量处理
                 dataView.insertDataObject(excelData);
-                return dataView;
+                return  ;
             }
+
+            // 在表中存在，却不符合检查条件的id列表
+            List<String> existId = repeatDataMap.getExistIds();//(List<String>) repeatDataMap.get(D_ExistId);
+            
             for (Map<String, Object> map : excelData) {
                 String rowId = (String) map.get("id");
                 // 判断记录是否为重复记录，tmpKey有值表示是重复记录。
                 String tmpKey = checkDataRepeatForKey(map, repeatData, checkItems);
                 if (tmpKey != null && !isPhyscTable) {// 当前记录是属于重复记录,更新实体对应的记录即可
-                    List<IDataObject> matchDatas = ((List<IDataObject>) (Object) repeatData.get(tmpKey));
+                    List<IDataObject> matchDatas =  (List) repeatData.get(tmpKey);
                     for (int i = 0; i < matchDatas.size(); i++) {
                         IDataObject dataObject = matchDatas.get(i);
                         for (String key : map.keySet()) {
@@ -358,19 +679,21 @@ public class ImportExcelToDBOrEntity implements IRule {
                     logger.warn(dataObject.getId() + "已存在，且不符合重复检查条件，已重新设置id为：" + tmpUUID);
                     continue;
                 }
+                List<String> ids = null;
                 if (tmpKey != null && isPhyscTable) {// 校验当前记录是否属于重复记录
-                    List<String> ids = ((List<String>) (Object) repeatData.get(tmpKey));
-                    if (ids != null) {
-                        for (int i = 0; i < ids.size(); i++) {
-                            dataObject.setStates(DataState.Modified, ids.get(i));
-                        }
+                    ids = (List) repeatData.get(tmpKey);
+                }
+                if (ids != null) {
+                    for (String id : ids) {
+                        dataObject.setStates(DataState.Modified, id);
                     }
                 }
             }
+        } catch (PluginException e) {
+        	throw e;
         } catch (Exception e) {
             throw new ConfigException("无法更新实体表数据，请检查数据类型与字段类型是否一致.", e);
-        }
-        return dataView;
+        } 
     }
 
     public boolean isNumeric(String str) {
@@ -580,23 +903,23 @@ public class ImportExcelToDBOrEntity implements IRule {
     }
 
     private boolean isNotEmpty(String str) {
-        if (str != null && !str.equals("")) {
+        return  (str != null && str.length()>0) ;/*{
             return true;
         }
 
-        return false;
+        return false;*/
     }
 
-    private int getLastOrderNoTableOrEntity(String tableName, String innerCodeField, String orderNoField, IDataView sourceDataView, boolean isPhyscTable, String parentCode) {
-        int orderNo = 1;
-        IDataView dataView = null;
+    //private int getLastOrderNoTableOrEntity( String tableName, String innerCodeField, String orderNoField, IDataView sourceDataView, boolean isPhyscTable, String parentCode) {
+    private int getLastOrderNoTableOrEntity( ParamsVo vo, String innerCodeField, String orderNoField,   String parentCode) {
+        int orderNo = 1; 
         Map<String, Object> queryParams = new HashMap<String, Object>();
         queryParams.put("innerCodeParam", parentCode + "_____");
         String wherestr = innerCodeField + " like :innerCodeParam order by " + innerCodeField + " desc";
-        if (isPhyscTable) {
+        if (vo.isPhyscTable()) {
             IDAS das = getVDS().getDas();
-            String sql = "select * from " + tableName + " where " + wherestr;
-            dataView = das.find(sql, queryParams);
+            String sql = "select * from " + vo.getTableName() + " where " + wherestr;
+            IDataView dataView = das.find(sql, queryParams);
             if (dataView != null) {
                 List<Map<String, Object>> orderNoMaxData = dataView.getDatas();
                 if (orderNoMaxData.size() > 0) {
@@ -606,7 +929,7 @@ public class ImportExcelToDBOrEntity implements IRule {
                 }
             }
         } else {
-            List<IDataObject> orderNoMaxData = sourceDataView.select(wherestr, queryParams);
+            List<IDataObject> orderNoMaxData = vo.getTargetDataView().select(wherestr, queryParams); //sourceDataView.select(wherestr, queryParams);
             if (orderNoMaxData.size() > 0) {
                 IDataObject dataObject = orderNoMaxData.get(0);
                 orderNo = (Integer) dataObject.get(orderNoField);
@@ -646,25 +969,46 @@ public class ImportExcelToDBOrEntity implements IRule {
      *
      * @param result 上午11:22:03
      */
-    private boolean handelEntityOrTableTree(List<Map<String, Object>> result, Map<String, Object> treeStruts, IDataView dataView, String selectId, boolean isImportId, boolean isBizCodeTree,
-                                            Map<String, Object> cfgMap, String tableName, boolean isPhyscTable, Map<String, Object> repeatDataMap, List<String> checkItems) {
+    /*private boolean handelEntityOrTableTree(List<Map<String, Object>> result, Map<String, Object> treeStruts, IDataView dataView, String selectId, boolean isImportId, boolean isBizCodeTree,
+                                            Map<String, Object> cfgMap, String tableName, boolean isPhyscTable, Map<String, Object> repeatDataMap, List<String> checkItems) {*/
+    private boolean handelEntityOrTableTree(List<Map<String, Object>> result, ParamsVo vo,     
+             RepeatTreeVo repeatDataMap  ) {
         // 重复的数据
-        Map<String, List<Object>> repeatData = (Map<String, List<Object>>) repeatDataMap.get("matchData");
-        List<String> existId = (List<String>) repeatDataMap.get("existId");
+        Map<String, List<Object>> repeatData =  repeatDataMap.getMatchData();//(Map<String, List<Object>>)
+        List<String> existId = repeatDataMap.getExistIds();
         // 数据库中根节点的顺序号
-        Map<String, List<Integer>> repeatOrderNo = (Map<String, List<Integer>>) repeatDataMap.get("repeatOrderNo");
+        Map<String, List<Integer>> repeatOrderNo = repeatDataMap.getRepeatOrderNo() ;// (Map<String, List<Integer>>) repeatDataMap.get("repeatOrderNo");
 
+        Map treeStruts = vo.getTreeStructMap();
         String parentColumn = (String) treeStruts.get(TreeColumn.ParentField.columnName());
         String treeCodeColumn = (String) treeStruts.get(TreeColumn.TreeCodeField.columnName());
         String isLeafColumn = (String) treeStruts.get(TreeColumn.IsLeafField.columnName());
         String orderColumn = (String) treeStruts.get(TreeColumn.OrderField.columnName());
 
+        // 业务编码配置
+        boolean isBizCodeTree = vo.isImportBy();/*
+        if (importBy != null && importBy.equals("filiation")) {
+            isBizCodeTree = true;
+        }*/
+        /*
         String bizCodeField = isBizCodeTree ? (String) cfgMap.get(BIZCODEFIELD) : treeCodeColumn;
         String bizCodeFormat = (String) cfgMap.get(BIZCODEFORMAT);
         Object bizCodeConfig = null;
         if (isBizCodeTree)
             bizCodeConfig = getVDS().getFormulaEngine().eval((String) cfgMap.get(BIZCODECONFIG));
-
+*/
+        String bizCodeFormat = vo.getBizCodeFormat();
+        String bizCodeField ;
+        Object bizCodeConfig = null;
+        if(isBizCodeTree) {
+        	bizCodeField = vo.getBizCodeField() ;
+        	bizCodeConfig = getVDS().getFormulaEngine().eval(vo.getBizCodeConfig());
+        }
+        else {
+        	bizCodeField =  treeCodeColumn;
+        }
+        
+        
         // 根据父子关系字段排序
         result = bizCodeConfig != null ? getSortData(bizCodeConfig, isBizCodeTree, result, bizCodeField) : sortData(result, bizCodeField, isBizCodeTree);
 
@@ -675,14 +1019,14 @@ public class ImportExcelToDBOrEntity implements IRule {
         Map<String, Boolean> isInsert = new LinkedHashMap<String, Boolean>();
 
         // 过滤树内置字段
-        Set<String> filterFieldSet = getFilterFieldForTree(treeStruts, isImportId);
+        Set<String> filterFieldSet = getFilterFieldForTree(treeStruts, vo.isImportId());
 
         // 保存每个编码下有多少个子节点
         Map<String, Integer> codeOrder = new LinkedHashMap<String, Integer>();
 
         Map<String, String> codeInnerCode = new LinkedHashMap<String, String>();
         // 根节点临时标识
-        String rootCode = (String) repeatDataMap.get("parentIden");
+        String rootCode =   repeatDataMap.getParentIden();
         // 标识某个父节点已经获取了第几个重复的顺序号
         Map<String, Integer> innerCodeIndex = new LinkedHashMap<String, Integer>();
 
@@ -712,7 +1056,7 @@ public class ImportExcelToDBOrEntity implements IRule {
                 throw new BusinessException("excel里有重复层级码" + code + "不允许导入");
             }
             // 重复key，如果不重复，则为空
-            String repeatKey = checkDataRepeatForKey(singleMap, repeatData, checkItems);
+            String repeatKey = checkDataRepeatForKey(singleMap, repeatData, vo.getCheckItems());
             // 当前的父子关系节点是否根节点
             boolean isRoot = isRootNode(code, isBizCodeTree, bizCodeFormat, bizCodeConfig);
 
@@ -739,7 +1083,7 @@ public class ImportExcelToDBOrEntity implements IRule {
             // 当前节点的父节点的层级码
             String parentNodeInnerCode = "";
             if (isRoot) {
-                pId = selectId;
+                pId = "";// selectId;
             } else if (parentNode != null) {
                 pId = parentNode.getId();
                 parentNodeInnerCode = (String) parentNode.get(treeCodeColumn);
@@ -763,7 +1107,7 @@ public class ImportExcelToDBOrEntity implements IRule {
                     } else if (isInsert.size() == 0) {
                         maxOrderNo = 0;
                     } else {
-                        maxOrderNo = getLastOrderNoTableOrEntity(tableName, treeCodeColumn, orderColumn, dataView, isPhyscTable, parentNodeInnerCode);
+                        maxOrderNo = getLastOrderNoTableOrEntity(vo , treeCodeColumn, orderColumn , parentNodeInnerCode);
                         if (maxOrderNo == -1)
                             maxOrderNo = 0;
                     }
@@ -801,8 +1145,8 @@ public class ImportExcelToDBOrEntity implements IRule {
             codeInnerCode.put(code, innerCode);
 
             IDataObject dataObject = null;
-            if (isPhyscTable) {
-                dataObject = dataView.insertDataObject();
+            if (vo.isPhyscTable()) {
+                dataObject = vo.getTargetDataView().insertDataObject();
                 dataObject.setId(VdsUtils.uuid.generate());
                 Set<String> set = singleMap.keySet();
                 for (String key : set) {
@@ -821,11 +1165,12 @@ public class ImportExcelToDBOrEntity implements IRule {
                     dataObject.setId(tmpUUID);
                 }
                 if (repeatKey != null) {
-                    List<String> ids = (List<String>) (Object) repeatData.get(repeatKey);
+                    List<String> ids = (List) repeatData.get(repeatKey);
                     for (int j = 0; j < ids.size(); j++) {
                         // 如果不检查id的话，更新的时候不更新id
-                        if (!checkItems.contains("id"))
+                        if (vo.getCheckItems().indexOf("id") == -1) {
                             dataObject.setId(ids.get(j));
+                        }
                         dataObject.setStates(DataState.Modified, ids.get(j));
                     }
                     isInsert.put(innerCode, false);
@@ -834,7 +1179,7 @@ public class ImportExcelToDBOrEntity implements IRule {
                 }
             } else {
                 if (repeatKey != null) {
-                    List<IDataObject> ids = (List<IDataObject>) (Object) repeatData.get(repeatKey);
+                    List<IDataObject> ids =  (List) repeatData.get(repeatKey);
                     for (int j = 0; j < ids.size(); j++) {
                         IDataObject rowRecord = ids.get(j);
                         if (j == 0)
@@ -850,7 +1195,7 @@ public class ImportExcelToDBOrEntity implements IRule {
                     }
                     isInsert.put(innerCode, false);
                 } else {
-                    dataObject = dataView.insertDataObject();
+                    dataObject =  vo.getTargetDataView().insertDataObject();
                     dataObject.setId(VdsUtils.uuid.generate());
                     for (String key : singleMap.keySet()) {
                         // 如果是树的内置字段则不设置值
@@ -919,48 +1264,54 @@ public class ImportExcelToDBOrEntity implements IRule {
      * @param sourceDataView 实体对象
      * @return 重复的数据，key 字段+字段值，value 对应重复的记录的id
      */
-    private Map<String, Object> getRepeatDataTree(String tableName, IDataView sourceDataView, Map<String, Set<Object>> queryParams, Set<String> excelIds, String orderNoCode, String innerCode,
-                                                  boolean isPhyscTable) {
-        Map<String, Object> returnData = new LinkedHashMap<String, Object>();
+    private RepeatTreeVo getRepeatDataTree(ParamsVo vo,  Map<String, Set<Object>> queryParams, Set<String> excelIds, String orderNoCode, String innerCode) {
+    	RepeatTreeVo returnData = new RepeatTreeVo();
         IDataView dataView = null;
         // 保存表/实体有的id，但是又不符合重复条件的id
-        List<String> existIds = getInvalidData(queryParams, sourceDataView, tableName, excelIds, isPhyscTable);
-        returnData.put("existId", existIds);
+        List<String> existIds = getInvalidData(queryParams, vo, excelIds);
+        returnData.setExistIds(existIds);
+        
         // 保存筛选结果 key对应字段 value对应有哪些是在数据库中重复的。
         Map<String, List<Object>> resultMap = new LinkedHashMap<String, List<Object>>();
         // 顺序号，作为更新根节点时用的。
         List<Integer> orderNos = new ArrayList<Integer>();
-        String whereStr = " 1 = 1 and ";
-        // 保存哪些key是用作重复判断的
-        List<String> checkFields = new ArrayList<String>();
         // 保存查询条件 仅在目标是表时候用到该变量
         Map<String, Object> findMap = new LinkedHashMap<String, Object>();
-        for (String key : queryParams.keySet()) {
-            Set<Object> valueList = queryParams.get(key);
-            if (valueList.size() > 0) {
-                whereStr = whereStr + key + " in(:" + key + ") and ";
-                findMap.put(key, queryParams.get(key));
-            }
-            checkFields.add(key);
+        String whereStr; {
+	        StringBuilder sb = new StringBuilder(" 1 = 1 and ");
+	        // 保存哪些key是用作重复判断的
+	        List<String> checkFields = new ArrayList<String>();
+	       
+	        for (String key : queryParams.keySet()) {
+	            Set<Object> valueList = queryParams.get(key);
+	            if (valueList.size() > 0) {
+	            	sb.append(key).append(" in(:").append(key).append(") and ");
+	                findMap.put(key, queryParams.get(key));
+	            }
+	            checkFields.add(key);
+	        }
+	        whereStr = sb.substring(0, sb.length() - 4);
         }
-        whereStr = whereStr.substring(0, whereStr.length() - 4);
         // 根节点的标识
         String parentIden = VdsUtils.uuid.generate();
         // 保存每条重复的数据中的顺序号，用父节点做key,如果是根节点，则用一个随机编码标识
         Map<String, List<Integer>> repeatOrderNo = new LinkedHashMap<String, List<Integer>>();
 
-        List<Object> matchDatas = null;
+        List<?> matchDatas ;
+        boolean isPhyscTable = vo.isPhyscTable();
         if (isPhyscTable) {
             IDAS das = getVDS().getDas();
-            dataView = das.find("select * from " + tableName + " where " + whereStr, findMap);
-            matchDatas = (List<Object>) ((Object) dataView.getDatas());
+            dataView = das.find("select * from " + vo.getTableName() + " where " + whereStr, findMap);
+            matchDatas =  dataView.getDatas();
         } else {
-            matchDatas = (List<Object>) ((Object) sourceDataView.select(whereStr, findMap));
-            dataView = sourceDataView;
+        	IDataView dv = vo.getSourceDataView();
+            matchDatas =  dv.select(whereStr, findMap);
+            dataView = dv;
         }
+        List<String> checkFields = vo.getCheckItems();
         for (int i = 0; i < matchDatas.size(); i++) {
             Object singleRecord = matchDatas.get(i);
-            String innercode = (String) getValue(singleRecord, innerCode, isPhyscTable);// 层级码
+            String innercode = getValue(singleRecord, innerCode, isPhyscTable);// 层级码
             // 2020-07-07
             // ------新增------
             // 表中树形数据有可能出现非法的innercode
@@ -980,87 +1331,116 @@ public class ImportExcelToDBOrEntity implements IRule {
             if (innercode != null && innercode.length() == 5) {
                 orderNos.add(Integer.parseInt(orderNo + ""));
             }
-            String tmpKey = "";
-            for (int j = 0; j < checkFields.size(); j++) {
-                String columnName = checkFields.get(j);
+            StringBuilder sb = new StringBuilder();
+            for (String columnName : checkFields) {
+                //String columnName = checkFields.get(j);
                 Object value = getValue(singleRecord, columnName, isPhyscTable);
-                if (value instanceof BigDecimal)
-                    value = ((BigDecimal) value).doubleValue();
-                else if (value instanceof Integer)
-                    value = Double.parseDouble(value.toString());
-                String codeValue = columnName + "=" + value;
-                tmpKey = tmpKey + codeValue + ",";
+                if (value instanceof Number) {
+                    value = new Double(((Number) value).doubleValue());
+                }
+                //String codeValue = columnName + "=" + value;
+                sb.append(columnName).append('=').append(value).append(',');
             }
-            if (tmpKey.equals(""))
+            if (sb.length()==0) {
                 continue;
-            tmpKey = "[" + tmpKey.substring(0, tmpKey.length() - 1) + "]";
+            }
+            String tmpKey = "[" + sb.substring(0, sb.length() - 1) + "]";
             List<Object> ids = resultMap.get(tmpKey);
             if (ids == null) {
                 ids = new ArrayList<Object>();
                 resultMap.put(tmpKey, ids);
             }
             if (isPhyscTable) {
-                String id = (String) getValue(singleRecord, "id", isPhyscTable);
-                if (id != null)
+                String id =  getValue(singleRecord, "id", isPhyscTable);
+                if (id != null) {
                     ids.add(id);
+                }
             } else {
                 ids.add(singleRecord);
             }
         }
-        returnData.put("matchData", resultMap);
-        Collections.sort(orderNos);
+       // returnData.put("matchData", resultMap);
+        returnData.setMatchData(resultMap);
+        /*Collections.sort(orderNos);
         returnData.put("orderNos", orderNos);
         returnData.put("repeatOrderNo", repeatOrderNo);
-        returnData.put("parentIden", parentIden);
+        returnData.put("parentIden", parentIden);*/
+        returnData.setRepeatOrderNo(repeatOrderNo);
+        returnData.setParentIden( parentIden);
         return returnData;
     }
 
-    private Object getValue(Object source, String field, boolean isPhyscTable) {
-        return isPhyscTable ? ((Map<String, Object>) source).get(field) : ((IDataObject) source).get(field);
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+	private <T> T getValue(Object source, String field, boolean isPhyscTable) {
+    	Object t;
+    	if(isPhyscTable) {
+    		Map  m = (Map) source;
+    		t = m.get(field);
+    	}
+    	else {
+    		IDataObject ds = (IDataObject) source;
+    		t = ds.get(field);
+    	}
+        return (T)t;
     }
 
-    private List<String> getInvalidData(Map<String, Set<Object>> queryParams, IDataView sourceDataView, String tableName, Set<String> excelIds, boolean isPhyscTable) {
-        List<String> existIds = new ArrayList<String>();
+    private List<String> getInvalidData(Map<String, Set<Object>> queryParams,ParamsVo vo, Set<String> excelIds) {
+        
         // 如果重复检查条件只有检查id，就不需要判断是否有id重复了。
-        if (excelIds.size() < 1 || (queryParams.size() == 1 && queryParams.containsKey("id")))
-            return existIds;
+        if (excelIds.size() < 1 || (queryParams.size() == 1 && queryParams.containsKey("id"))) {
+            return Collections.emptyList();
+        }
         // 查询条件
         Map<String, Object> conditionMap = new HashMap<String, Object>();
-        conditionMap.put("ids", excelIds);
-        String whereStr = " id in(:ids) and ";
-        String tmp_where = "(";
-        for (String key : queryParams.keySet()) {
-            if (key.equals("id"))
-                continue;
-            Set<Object> valueList = queryParams.get(key);
-            if (valueList.size() > 0) {
-                tmp_where = tmp_where + key + " not in(:" + key + ") or ";
-                conditionMap.put(key, queryParams.get(key));
-            }
+        conditionMap.put("ids", excelIds); 
+        String whereStr ;{//= new StringBuilder(" id in(:ids) and ");{
+        	StringBuilder where =new StringBuilder( "(");
+	        for (String key : queryParams.keySet()) {
+	            if (key.equals("id")) {
+	                continue;
+	            }
+	            Set<Object> valueList = queryParams.get(key);
+	            if (valueList.size() > 0) {
+	            	where.append(key).append(" not in(:").append(key).append(") or ");
+	                conditionMap.put(key, queryParams.get(key));
+	            }
+	        }
+	        if(where.length()==1) {//.equals("(")
+	        	whereStr=" id in(:ids)";
+	        }
+	        else {
+	        	whereStr =  " id in(:ids) and " + where.substring(0, where.length() - 3) + ")";
+	        }
         }
-        whereStr = tmp_where.equals("(") ? whereStr.substring(0, whereStr.length() - 4) : whereStr + tmp_where.substring(0, tmp_where.length() - 3) + ")";
-        List<Object> existIdDatas = new ArrayList<Object>();
+    
+        List<String> existIds = new ArrayList<String>();
+        boolean isPhyscTable = vo.isPhyscTable();
+        List<?> existIdDatas = null ;
         if (!isPhyscTable) {// 实体
-            existIdDatas = (List<Object>) ((Object) sourceDataView.select(whereStr, conditionMap));
+        	IDataView dv = vo.getSourceDataView();
+            existIdDatas  = dv.select(whereStr, conditionMap);
         } else {// 表
             IDAS das = getVDS().getDas();
-            IDataView dataView = das.find("select * from " + tableName + " where " + whereStr, conditionMap);
-            if (dataView != null && dataView.getDatas() != null) {
-                existIdDatas = (List<Object>) ((Object) dataView.getDatas());
+            IDataView dataView = das.find("select * from " + vo.getTableName() + " where " + whereStr, conditionMap);
+            if (dataView != null) {
+                existIdDatas = dataView.getDatas();
             }
         }
-        for (int i = 0; i < existIdDatas.size(); i++) {
-            Object object = existIdDatas.get(i);
-            String id = (String) (isPhyscTable ? ((Map<String, Object>) object).get("id") : ((IDataObject) object).get("id"));
-            if (id != null && !id.equals("")) {
+        if(existIdDatas == null) {
+        	existIdDatas = Collections.emptyList();
+        }
+        for (Object object:existIdDatas) {
+            String id = getValue (object,"id" ,isPhyscTable);
+            if (id != null && id.length()>0) {
                 existIds.add(id);
             }
         }
-        existIdDatas.clear();
-        conditionMap.clear();
+        //existIdDatas.clear();
+        //conditionMap.clear();
         return existIds;
     }
 
+    
     /**
      * 根据重复字段以及来源的字段值，获取与表/实体重复的数据
      *
@@ -1070,27 +1450,31 @@ public class ImportExcelToDBOrEntity implements IRule {
      * @param sourceDataView 实体对象
      * @return 重复的数据，key 字段+字段值，value 对应重复的记录的id
      */
-    private Map<String, Object> getRepeatData(Map<String, Set<Object>> queryParams, IDataView sourceDataView, Set<String> excelIds, String tableName, boolean isPhyscTable, List<String> checkFields) {
-        Map<String, Object> returnData = new HashMap<String, Object>();
-        if (isPhyscTable) { // 物理表
-            int dbDataCount = getDataCountSize(tableName, null, null); // 获取数据库的记录数
+    //private Map<String, Object> getRepeatData(Map<String, Set<Object>> queryParams, IDataView sourceDataView1, Set<String> excelIds, String tableName, boolean isPhyscTable, List<String> checkFields) {
+    private RepeatVo getRepeatData(Map<String, Set<Object>> queryParams, ParamsVo vo, Set<String> excelIds) {
+        //Map<String, Object> returnData = new HashMap<String, Object>();
+    	boolean physcTable = vo.isPhyscTable();
+        if (physcTable) { // 物理表
+            int dbDataCount = getDataCountSize(vo.getTableName(), null, null); // 获取数据库的记录数
             if (dbDataCount == 0) { // 数据库没记录不去查
-                returnData.put("existId", new ArrayList<String>());
-                returnData.put("matchData", new HashMap<String, List<Object>>());
-                return returnData;
+                //returnData.put(D_ExistId, new ArrayList<String>());
+                //returnData.put("matchData", new HashMap<String, List<Object>>());
+                return new RepeatVo();
             }
         }
-        IDataView dataView = null;
         // 保存表/实体有的id，但是又不符合重复条件的id
-        List<String> existIds = getInvalidData(queryParams, sourceDataView, tableName, excelIds, isPhyscTable);
-        returnData.put("existId", existIds);
+        List<String> existIds = getInvalidData(queryParams, vo, excelIds);
+        RepeatVo result = new RepeatVo();
+        result.setExistIds(existIds);
+        
         // 保存查询条件 仅在目标是表时候用到该变量
         StringBuilder condSqlSb = null;
-        Set<String> queryParamNames = queryParams.keySet();
+        //Set<String> queryParamNames = queryParams.keySet();
         Map<String, Object> findMap = new HashMap<String, Object>();
-        for (String parName : queryParamNames) {
-            Set<Object> valueList = queryParams.get(parName);
-            if (valueList.size() > 0) {
+        for (Entry<String, Set<Object>> e : queryParams.entrySet()) {
+            //Set<Object> valueList = queryParams.get(parName);
+            if (e.getValue().size() > 0) {
+            	String parName = e.getKey();
                 if (condSqlSb != null) {
                     condSqlSb.append(" and ");
                 } else {
@@ -1104,39 +1488,44 @@ public class ImportExcelToDBOrEntity implements IRule {
             condSqlSb = new StringBuilder("1=1");
         }
         // 保存筛选结果 key对应字段 value对应有哪些是在数据库中重复的。
-        Map<String, List<Object>> resultMap = new HashMap<String, List<Object>>();
-        List<Object> matchDatas = null;
-        if (isPhyscTable) {
+        List<?> matchDatas;
+        IDataView dataView ;
+        if (physcTable) {
             IDAS das = getVDS().getDas();
-            dataView = das.find("select * from " + tableName + " where " + condSqlSb.toString(), findMap);
-            matchDatas = (List<Object>) ((Object) dataView.getDatas());
+            dataView = das.find("select * from " + vo.getTableName() + " where " + condSqlSb.toString(), findMap);
+            matchDatas  =dataView.getDatas(); 
         } else {
-            matchDatas = (List<Object>) ((Object) sourceDataView.select(condSqlSb.toString(), findMap));
-            dataView = sourceDataView;
-        }
-        for (int i = 0; i < matchDatas.size(); i++) {
-            Object singleRecord = matchDatas.get(i);
-            String tmpKey = "";
-            for (int j = 0; j < checkFields.size(); j++) {
-                String columnName = checkFields.get(j);
-                Object value = getValue(singleRecord, columnName, isPhyscTable);
-                if (value instanceof BigDecimal)
-                    value = ((BigDecimal) value).doubleValue();
-                else if (value instanceof Integer)
-                    value = Double.parseDouble(value.toString());
-                String codeValue = columnName + "=" + value;
-                tmpKey = tmpKey + codeValue + ",";
+        	IDataView dv = vo.getSourceDataView();
+        	matchDatas= dv.select(condSqlSb.toString(), findMap);
+            // vo.getSourceDataView().select(condSqlSb.toString(), findMap) ;
+            dataView = dv;//sourceDataView;
+        } 
+        
+        List<String> checkFields = vo.getCheckItems();
+        Map<String, List<Object>> resultMap = new HashMap<String, List<Object>>();
+        
+        for (Object singleRecord:matchDatas) { 
+            StringBuilder tmpKey = new StringBuilder();
+            for (String  columnName : checkFields) {
+                //String columnName = checkFields.get(j);
+                Object value = getValue(singleRecord, columnName, physcTable);
+                if (value instanceof Number) {
+                    value = new Double(((Number) value).doubleValue());
+                } 
+                tmpKey.append(columnName).append('=').append(value).append(',');
             }
-            if (tmpKey.equals(""))
+            if (tmpKey.length() ==0) {
                 continue;
-            tmpKey = "[" + tmpKey.substring(0, tmpKey.length() - 1) + "]";
-            List<Object> ids = resultMap.get(tmpKey);
+            }
+            String key =  "[" + tmpKey.substring(0, tmpKey.length() - 1) + "]";
+            List<Object> ids = resultMap.get(key);
             if (ids == null) {
                 ids = new ArrayList<Object>();
-                resultMap.put(tmpKey, ids);
+                resultMap.put(key, ids);
             }
-            if (isPhyscTable) {
-                String id = (String) ((Map<String, Object>) singleRecord).get("id");
+            if (physcTable) {
+            	Map rd = (Map) singleRecord;
+                String id = (String)rd.get("id");
                 if (id != null) {
                     ids.add(id);
                 }
@@ -1144,46 +1533,33 @@ public class ImportExcelToDBOrEntity implements IRule {
                 ids.add(singleRecord);
             }
         }
-        returnData.put("matchData", resultMap);
-        return returnData;
-    }
-
-    /**
-     * 获取excel的数据
-     *
-     * @param sheetNum    sheet数量（表达式）
-     * @param dCfg        导入配置模型
-     * @param mapper      模型映射关系
-     * @param inputStream 文件流
-     * @return
-     */
-    private List<Map<String, Object>> getExcelData(Object sheetNum, ExcelImportDataCfg dCfg, FModelMapper mapper, InputStream inputStream, IDataSetMetaData dataSetMetaData) {
-        int sheetno = 0;
-        try {
-            sheetNum = getVDS().getFormulaEngine().eval(sheetNum.toString());
-            sheetno = Integer.parseInt(sheetNum.toString());
-        } catch (Exception e) {
-            throw new ConfigException("获取配置的sheet序号失败", e);
-        }
-        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
-        // 读取Excel的数据
-        result = new FPOExcel().readExcel(inputStream, mapper, sheetno, dataSetMetaData);
+        result.setMatchData( resultMap);
         return result;
     }
 
-    private FModelMapper getModelMapperByExcelImportCfg(ExcelImportDataCfg dCfg, boolean isPhyscTable, IDataView sourceDataView) {
+ 
+    /**
+     * 
+     * @param dCfg
+     * @param sourceDataView 如果是null，就取物理表
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+	private FModelMapper getModelMapperByExcelImportCfg(ExcelImportDataCfg dCfg, IDataView sourceDataView) {
         FModelMapper mapper = new FModelMapper();
-        mapper.setStartRow(dCfg.getDataStartRow() - 1);
+        mapper.setStartRow(dCfg.getDataStartRow());
         if (mapper.getStartRow() <= 0) {
             throw new ConfigException("Excel导入配置的数据起始行必须大于1");
         }
-        List<ColumnImportCfg> list = dCfg.getMapping();
-        Map<String, FProperty> properties = new CaseInsensitiveLinkedMap();
-        List<String> fieldNameList = ObjPropertyUtil.getPropertyList(list, "fieldCode");
-        Set<String> fieldNameSet = new LinkedHashSet<String>(fieldNameList);
-        if (fieldNameSet.size() < fieldNameList.size()) {
-            throw new ConfigException("Excel导入配置中列名有重复");
+        List<ColumnImportCfg> list = dCfg.getMapping();{
+	        List<String> fieldNameList = ObjPropertyUtil2.getPropertyList(list, "fieldCode");
+	        Set<String> fieldNameSet = new LinkedHashSet<String>(fieldNameList);
+	        if (fieldNameSet.size() < fieldNameList.size()) {
+	            throw new ConfigException("Excel导入配置中列名有重复");
+	        }
         }
+        ITable table = (sourceDataView == null ? getVDS().getMdo().getTable(dCfg.getTarget())  : null);
+        Map<String, FProperty> properties = new CaseInsensitiveLinkedMap();
         for (int i = 0; i < list.size(); i++) {
             ColumnImportCfg columnCfg = list.get(i);
             String source = columnCfg.getSourceType();
@@ -1216,9 +1592,10 @@ public class ImportExcelToDBOrEntity implements IRule {
 
             if (isNotEmpty(dCfg.getTarget())) {
                 String columnName = columnCfg.getFieldCode();
-                ColumnType type = null;
-                if (isPhyscTable)
-                    type = getVDS().getMdo().getTable(dCfg.getTarget()).getColumn(columnName).getColumnType();
+                ColumnType type ;
+                if (sourceDataView == null) {
+                    type = table.getColumn(columnName).getColumnType();
+                }
                 else {
                     // 改为从实体中获取字段类型，因为前台没有传入字段类型
                     try {
@@ -1244,8 +1621,7 @@ public class ImportExcelToDBOrEntity implements IRule {
      * @param context    规则上下文
      * @param sourceName 来源名称
      * @param sourceType 来源类型
-     * @return
-     */
+     * @return 
     private IDataView getDataViewWithType(IRuleContext context, String sourceName, String sourceType) {
         IDataView sourceDV = null;
         // 活动集输入变量 ruleSetInput
@@ -1260,8 +1636,51 @@ public class ImportExcelToDBOrEntity implements IRule {
             throw new ConfigException("导入Excel规则 : 不支持类型[" + sourceType + "]的变量值设置.");
         }
         return sourceDV;
-    }
+    }*/
 
+	/**
+	 * 取来源实体
+	 * 
+	 * @param context 规则上下文
+	 * @param sourceName 来源名称
+	 * @param sourceType 来源类型
+	 * @return
+	 */
+	private IDataView getDataViewWithType(IRuleContext context, String sourceName, VariableType sourceType) {
+		
+		IDataView sourceDV = null;
+		if (VariableType.Table == sourceType) { 
+			sourceDV = getVDS().getDas().createDataViewByName(sourceName);
+			return sourceDV;
+		}
+		/*
+		 * if ("ruleSetInput".equalsIgnoreCase(sourceType) || "ruleSetOutput".equalsIgnoreCase(sourceType) || "ruleSetVar".equalsIgnoreCase(sourceType)) {
+            ContextVariableType instanceType = ContextVariableType.getInstanceType(sourceType);
+            sourceDV = (IDataView) context.getVObject().getContextObject(sourceName, instanceType);
+        } else if ("table".equalsIgnoreCase(sourceType)) {   // 窗体实体
+            sourceDV = getVDS().getDas().createDataViewByName(sourceName);
+        } else {
+            throw new ConfigException("导入Excel规则 : 不支持类型[" + sourceType + "]的变量值设置.");
+        }
+		 */
+		
+		ContextVariableType t = sourceType.getType();// ContextVariableType.getInstanceType(sourceType);
+		if(t == null) {
+			throw new ConfigException("导入Excel规则 : 不支持上下文变量类型[" + sourceType + "]的变量值设置.");
+		}
+		switch (t) {
+			case RuleSetInput:
+			case RuleSetOutput:
+			case RuleSetVar:
+				sourceDV = (IDataView) context.getVObject().getContextObject(sourceName,t);
+				break;
+			 
+			default:
+				throw new ConfigException("导入Excel规则 : 不支持上下文类型[" + sourceType + "]的变量值设置.");
+				// throw new ExpectedException("导入Excel规则 : 不支持类型[" + sourceType + "]的变量值设置.");
+		}
+		return sourceDV;
+	}
     /**
      * 判断是否配与导入ID
      */
@@ -1315,13 +1734,106 @@ public class ImportExcelToDBOrEntity implements IRule {
             sb.append(" where ").append(sqlCondition);
             countDataView = das.find(sb.toString(), paramMap);
         } else {
-            countDataView = das.findWithNoFilter(sb.toString(), new HashMap());
+            countDataView = das.findWithNoFilter(sb.toString(), Collections.emptyMap());
         }
-        int amount = Integer.valueOf(countDataView.select().get(0).get("amount").toString());
+        Object amouts = countDataView.select().get(0).get("amount");
+        int amount;
+        if(amouts == null ) {
+        	amount =0;
+        }
+        else if(amouts instanceof Number) {
+        	amount = ((Number) amouts).intValue();
+        }
+        else {
+        	amount = Integer.valueOf(amouts.toString());
+        }
         return amount;
     }
 
     private IVDS getVDS() {
         return VDS.getIntance();
+    }
+    
+    private enum VariableType{
+    	// 活动集输入变量
+		RuleSetInput(ContextVariableType.RuleSetInput),
+		// 活动集输出变量
+		RuleSetOutput(ContextVariableType.RuleSetOutput),
+		// 活动集上下文变量
+		RuleSetVar(ContextVariableType.RuleSetVar),
+		// 窗体实体
+		Table("table");
+    	
+		private ContextVariableType	 type;
+		private String	 otherType;
+		
+		private VariableType(String otherType) {
+			this.otherType = otherType;
+		}
+		private VariableType(ContextVariableType type) {
+			this.type = type;
+		}
+
+		public ContextVariableType getType() {
+			return type;
+		}
+		public String getOtherType() {
+			return otherType;
+		}
+		public static VariableType getInstanceType(String name) {
+			VariableType ret = null;
+			for (VariableType type : VariableType.values()) {
+				if (type.name().equalsIgnoreCase(name)) {
+					ret = type;
+					break;
+				}
+			}
+			return ret;
+		}
+    }
+    private class RepeatVo{
+    	private List<String> existIds;
+    	private Map<String, List<Object>> matchData; 
+    	public RepeatVo() {
+    		this(Collections.emptyList(),Collections.emptyMap());
+    	}
+    	public RepeatVo(List<String> existIds,Map<String, List<Object>> matchData) {
+    		this.existIds = existIds;
+    		this.matchData = matchData;
+    	}
+		public List<String> getExistIds() {
+			return existIds;
+		}
+		public void setExistIds(List<String> existIds) {
+			this.existIds = existIds;
+		}
+		public Map<String, List<Object>> getMatchData() {
+			return matchData;
+		}
+		public void setMatchData(Map<String, List<Object>> matchData) {
+			this.matchData = matchData;
+		}
+    }
+    private class RepeatTreeVo extends RepeatVo{ 
+    	private Map<String, List<Integer>> repeatOrderNo;
+    	private String parentIden;
+    	public RepeatTreeVo() {
+    	}
+
+		public Map<String, List<Integer>> getRepeatOrderNo() {
+			return repeatOrderNo;
+		}
+
+		public void setRepeatOrderNo(Map<String, List<Integer>> repeatOrderNo) {
+			this.repeatOrderNo = repeatOrderNo;
+		}
+
+		public String getParentIden() {
+			return parentIden;
+		}
+
+		public void setParentIden(String parentIden) {
+			this.parentIden = parentIden;
+		} 
     }
 }

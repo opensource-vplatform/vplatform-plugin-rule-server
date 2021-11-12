@@ -42,6 +42,7 @@ public class EntityRecordRecycling  implements IRule  {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public IRuleOutputVo evaluate(IRuleContext context) {
+		long startTime = System.currentTimeMillis();
 		//Map<String, Object> inParams = (Map<String, Object>) context.getRuleConfig().getConfigParams();
 		String entityName = (String) context.getPlatformInput(D_TargetEntity);
 		List<Map> mappingItems = (List<Map>) context.getPlatformInput(D_TargetFields);
@@ -66,6 +67,7 @@ public class EntityRecordRecycling  implements IRule  {
 			return context.newOutputVo();
 		}
 		
+		long funcTime = 0;
 		List<IDataObject> list = dataView.select(condSql, queryParams);
 		for (IDataObject dataObject : list) {
 			for (int i = 0; i < mappingItems.size(); i++) {
@@ -73,10 +75,19 @@ public class EntityRecordRecycling  implements IRule  {
 				String type = item.get(D_SourceType);
 				String formula = item.get(D_FieldValue);
 				String destField = item.get(D_TargetField);
+				
+				long funcTime1 = System.currentTimeMillis();
 				// 获取需要设置的值
 				Object value = getTargetValue(type, formula);
+				funcTime += (System.currentTimeMillis() -funcTime1);
 				dataObject.set(destField, value);
 			}
+		}
+		
+		long endTime = System.currentTimeMillis() - startTime;
+		if(endTime > 1024) {
+			log.warn("实体记录循环处理{}，耗时【{}】毫秒,dataViewSize={},listSize={},funcTime={},条件:{}"
+					,entityName,endTime,dataView.select().size(),list.size(), funcTime, condSql);
 		}
 		return context.newOutputVo().put(Boolean.TRUE);
 	}

@@ -7,10 +7,10 @@ import java.util.*;
 
 /**
  * 获取对象属性工具
- *
+ * @deprecated 性能极慢
  * @author shenxiangz
  */
-public class ObjPropertyUtil {
+class ObjPropertyUtil {
 
     /**
      * 获取map中指定key的值（忽略大小写）
@@ -19,7 +19,7 @@ public class ObjPropertyUtil {
      * @param key
      * @return
      */
-    public static Object getMapValueByIgnoreCase(Map<?, ?> map, Object key) {
+    private static Object getMapValueByIgnoreCase(Map<?, ?> map, Object key) {
         if (map == null) {
             return null;
         }
@@ -49,7 +49,7 @@ public class ObjPropertyUtil {
      *        对象的属性名
      * @return
      */
-    public static <T> List<T> getPropertyList(Collection<?> list, String propertyName) {
+    private static <T> List<T> getPropertyList(Collection<?> list, String propertyName) {
         return getPropertyList(list, propertyName, true);
     }
 
@@ -64,7 +64,7 @@ public class ObjPropertyUtil {
      *        是否忽略属性名的大小写
      * @return
      */
-    public static <T> List<T> getPropertyList(Collection<?> list, String propertyName,
+    private static <T> List<T> getPropertyList(Collection<?> list, String propertyName,
                                               boolean ignoreCase) {
         return getPropertyList(list, propertyName, ignoreCase, true);
     }
@@ -105,7 +105,7 @@ public class ObjPropertyUtil {
      * @return
      * @throws Exception
      */
-    public static Object getProperty(Object object, String attriname) {
+    private static Object getProperty(Object object, String attriname) {
         try {
             // 参数异常判断 lujx 2008-1-22
             if (object == null || isEmpty(attriname)) {

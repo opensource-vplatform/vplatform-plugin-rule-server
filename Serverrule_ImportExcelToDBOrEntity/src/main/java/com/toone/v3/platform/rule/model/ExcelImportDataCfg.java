@@ -65,11 +65,11 @@ public class ExcelImportDataCfg {
     public void setMapping(List<ColumnImportCfg> mapping) {
         this.mapping = mapping;
     }
-
+    /**正文起始行，从1开始(上版本的描述是0，需要验证一下)*/
     public int getDataStartRow() {
         return dataStartRow;
     }
-
+    /**正文起始行，从1开始(上版本的描述是0，需要验证一下)*/
     public void setDataStartRow(int dataStartRow) {
         this.dataStartRow = dataStartRow;
     }

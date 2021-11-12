@@ -6,8 +6,7 @@ import java.util.Map;
  * Model映射
  *
  * @author huj
- */
-@SuppressWarnings({"rawtypes"})
+ */ 
 public class FModelMapper {
     /**
      * Model ID
@@ -17,7 +16,7 @@ public class FModelMapper {
     /**
      * Model对应的类命中径名
      */
-    private String className;
+    //private String className;
 
     /**
      * 数据开始行，第一行值为1
@@ -32,7 +31,7 @@ public class FModelMapper {
     /**
      * 属性名为key,PropertyMapper为value
      */
-    private Map properties;
+    private Map<String,FProperty> properties;
 
     /**
      * 表格标题
@@ -46,27 +45,31 @@ public class FModelMapper {
     public void setId(String id) {
         this.id = id;
     }
-
+/*
     public String getClassName() {
         return className;
     }
 
     public void setClassName(String className) {
         this.className = className;
-    }
+    }*/
 
-    public Map getProperties() {
+    public Map<String,FProperty> getProperties() {
         return properties;
     }
 
-    public void setProperties(Map propertiesMap) {
+    public void setProperties(Map<String,FProperty> propertiesMap) {
         this.properties = propertiesMap;
     }
-
+    /**
+     * 数据开始行，第一行值为1
+     */
     public int getStartRow() {
         return startRow;
     }
-
+    /**
+     * 数据开始行，第一行值为1
+     */
     public void setStartRow(int startRow) {
         this.startRow = startRow;
     }

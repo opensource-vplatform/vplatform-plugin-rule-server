@@ -80,9 +80,7 @@ class Execute{
 	 */
 	protected IRuleOutputVo execute(IRuleContext context,InvokeTargetVo invokeVo
 			,List<Map<String, Object>> invokeParams,List<Map<String, Object>> returnMappings) {
-		long start=System.currentTimeMillis();
-		long start1=System.currentTimeMillis();
-		long end1=start1-start;
+		long start=System.currentTimeMillis();  
 		
 		// 查找RuleSet对象
 		// 注释掉旧方法
@@ -93,8 +91,7 @@ class Execute{
 			String s ="调用构件" + invokeVo.getComponentCode() + "的后台活动集" + invokeVo.getRuleSetCode() + "失败，活动集不存在，请检查活动集是否已经部署";
 			throw new ConfigException( s);
 		}
-		long start2=System.currentTimeMillis();
-		long end2=start2-start1;
+		long start2=System.currentTimeMillis(); 
 		
 		// 按照以前的逻辑找到具体的扩展点实现进行执行
 		
@@ -120,8 +117,7 @@ class Execute{
 //        }
 //        long start3=System.currentTimeMillis();
 //		long end3=start3-start2;
-		long end4=0;
-		long start4=0;
+        long start4=System.currentTimeMillis();
 		if(null != codes){
 			for (int i = 0; i < codes.size(); i++) {
 				EpImplVo codeInfo = codes.get(i);
@@ -137,9 +133,7 @@ class Execute{
 			}
 		}else{
 			//Map<String,Object> epImpInfo = findEPImpl(remoteUrl, componentCode, ruleSetCode);
-			EpImplVo epImpInfo = findEPImpl(invokeVo);
-			start4=System.currentTimeMillis();
-			end4=start4-start2;
+			EpImplVo epImpInfo = findEPImpl(invokeVo); 
 			//epImplCode = (epImpInfo == null ? null : epImpInfo.getEpImplCode()) ;// epImpInfo.get("epImplCode") ;
 			IRuleSetResult ruleSetResult =  
 					exeRuleSet(invokeVo,ruleSet,context,invokeParams, returnMappings,epImpInfo);
@@ -151,12 +145,15 @@ class Execute{
 		}
 		
 		
-		long end5=System.currentTimeMillis()-start4;
-		if(ExecuteRuleSet.isCalInOutWasteTime && (end1>0||end2>0||end4>0||end5>0)){
-			logger.info("执行方法增加时间1="+end1+","+end2+","+end4+","+end5);
-		}
+		
 		//这里只是记录引用的实体名字以便校验抛异常
 		this.clearRefdataView();
+		
+		long endTime =System.currentTimeMillis() ;
+		if(ExecuteRuleSet.isCalInOutWasteTime  ){
+			logger.info(invokeVo.getComponentCode() + "." + invokeVo.getRuleSetCode() + "执行总时间="+ (endTime -start)
+					+",start2-start="+(start2-start)+",start4-start2 = "+ (start4-start2)+",endTime-start4="+(endTime-start4));
+		}
 		return context.newOutputVo();
 //		List<String> extensionImplCodes = null;
 //		if (StringUtils.isNotEmpty(epImplCode)) {
@@ -249,15 +246,12 @@ class Execute{
 
 		// 初始化构件方法输入变量
 		Map<String, Object> ruleSetInputParams = initRuleSetInputParams(context, ruleSet, invokeParams, invokeVo.getRemoteUrl());
-		long start3=0;
-		long end1=0;
-		long end2=0;
+ 
+		long  initRuleSetTime =System.currentTimeMillis();
 		IRuleSetResult ruleSetResult = null;
 		try {
 			// 设置执行上下文的构件编号
-			setCurrentComponentCode(ruleSet.getComponentCode());
-			long start1=System.currentTimeMillis();
-			end1=start1-start;
+			setCurrentComponentCode(ruleSet.getComponentCode()); 
 			
 			// 执行活动集
 			if (invokeVo.isParallelism()) {
@@ -289,18 +283,16 @@ class Execute{
 				//ruleSetResult = executeRuleSetOld(remoteUrl, componentCode, ruleSetCode, ruleSetInputParams);
 				ruleSetResult = executeRuleSet(invokeVo.getRemoteUrl(), ruleSet, ruleSetInputParams, extensionImplCodes);
 			}
-			start3=System.currentTimeMillis();
-			end2=start3-start1;
 			
 			return ruleSetResult;
 
 		} finally {
 			// 清除执行上下文的构件编号
 			clearCurrentComponentCode();
-			long end3=System.currentTimeMillis()-start3;
-			if(ExecuteRuleSet.isCalInOutWasteTime & (end1>0||end2>0||end3>0)){
-				logger.info("执行方法增加时间2="+end1+","+end2+","+end3);
-				
+			long  endTime =System.currentTimeMillis();
+			if(ExecuteRuleSet.isCalInOutWasteTime ){
+				logger.info(invokeVo.getComponentCode() + "." + invokeVo.getRuleSetCode() + "执行exeRuleSet总时间="+ (endTime -start)
+						+",初始化变量耗时=" +(initRuleSetTime-start)  + ",executeRuleSet耗时="+( endTime - initRuleSetTime));
 			} 
 		}
 		/*
@@ -524,14 +516,14 @@ class Execute{
 			List<String> extensionImplCodes) {
 		IRuleSetResult result = null;
 		if (VdsUtils.string.isEmpty(remoteUrl)) {
-			long start=System.currentTimeMillis();
+			//long start=System.currentTimeMillis();
 			IRuleSetExecutorWithEPImplCode ep = VDS.getIntance().getRuleSetService().getRuleSetExecutorWithEPImplCode();
 			List<IRuleSetResult> ruleSetResults = ep.execute(ruleSet,
 					ruleSetInputParams, null, extensionImplCodes);
-			long end=System.currentTimeMillis()-start;
+			/*long end=System.currentTimeMillis()-start;
 			if(ExecuteRuleSet.isCalInOutWasteTime){
 				logger.info("执行方法外部调用核心耗时：【"+end+"】");
-			}
+			}*/
 			if (CollectionUtils.isNotEmpty(ruleSetResults)) {
 				result = ruleSetResults.get(0);
 			}
