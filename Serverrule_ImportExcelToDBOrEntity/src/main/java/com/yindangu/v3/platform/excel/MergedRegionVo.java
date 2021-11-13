@@ -10,7 +10,7 @@ import com.yindangu.v3.business.plugin.execptions.ConfigException;
  
 
 /**读excel时，分析Sheet中的合并行信息*/
-class SheetReaderMergedRegionVo {
+class MergedRegionVo {
 	
 	public static class RegionVo{
 		private int x,y;
@@ -81,7 +81,7 @@ class SheetReaderMergedRegionVo {
 	 * @param sheet
 	 * @param type 合并类型，如果为null就使用默认配置
 	 */
-	public SheetReaderMergedRegionVo(Sheet sheet,MergedType type) {
+	public MergedRegionVo(Sheet sheet,MergedType type) {
 		if(type == null || type == MergedType.None) { 
 			throw new ConfigException("MergedType类型无效:" + type); 
 		}

@@ -33,27 +33,27 @@ import com.yindangu.v3.business.plugin.execptions.BusinessException;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.EnviException;
 import com.yindangu.v3.business.plugin.execptions.PluginException;
-import com.yindangu.v3.platform.excel.SheetReaderMergedRegionVo.RegionVo; 
+import com.yindangu.v3.platform.excel.MergedRegionVo.RegionVo; 
 /**
  * 读取Sheet内容
  * @author jiqj
  *
  */
-public class SheetReader{
-	private static final Logger log = LoggerFactory.getLogger(SheetReader.class);
+public class POIExcelAction{
+	private static final Logger log = LoggerFactory.getLogger(POIExcelAction.class);
 	/**读取一个Sheet内容*/
-	public static class SheetReaderBuilder{
+	public static class ReaderBuilder{
 		//private Sheet sheet ;
 		private int sheetIndex;
 		private FModelMapper fieldMap; 
 		private IDataSetMetaData table;
 		private MergedType merged;
 		private InputStream inputStream;
-		public SheetReaderBuilder() {
+		public ReaderBuilder() {
 			sheetIndex = -2;
 		}
 		
-		public SheetReaderBuilder setMerged(MergedType merged) {
+		public ReaderBuilder setMerged(MergedType merged) {
 			this.merged = merged;
 			return this;
 		}/*
@@ -67,21 +67,21 @@ public class SheetReader{
 		 * @param sheetIndex -1表示全部
 		 * @return
 		 */
-		public SheetReaderBuilder setSheetIndex(int sheetIndex) {
+		public ReaderBuilder setSheetIndex(int sheetIndex) {
 			this.sheetIndex = sheetIndex;
 			return this;
 		}
 
-		public SheetReaderBuilder setFieldMap(FModelMapper mm) {
+		public ReaderBuilder setFieldMap(FModelMapper mm) {
 			this.fieldMap = mm;
 			return this;
 		}
  
-		public SheetReaderBuilder setTable(IDataSetMetaData table) {
+		public ReaderBuilder setTable(IDataSetMetaData table) {
 			this.table =table;
 			return this;
 		}
-		public SheetReader builder() {
+		public POIExcelAction builder() {
 			if(inputStream == null) {
 				throw new ConfigException("读取Excel数据流:Workbook.inputStream == null");
 			}
@@ -92,17 +92,17 @@ public class SheetReader{
 				//merged = ImportExcelConfig.getConfig().getMergedType();
 				merged = MergedType.None; 
 			}
-			return new SheetReader(this);
+			return new POIExcelAction(this);
 		}
 
-		public SheetReaderBuilder setInputStream(InputStream inputStream) {
+		public ReaderBuilder setInputStream(InputStream inputStream) {
 			this.inputStream = inputStream;
 			return this;
 		}
 	}
 	
-	private SheetReaderBuilder builder ;
-	private SheetReader(SheetReaderBuilder builder) {
+	private ReaderBuilder builder ;
+	private POIExcelAction(ReaderBuilder builder) {
 		this.builder = builder;
 	}
 	
@@ -171,9 +171,9 @@ public class SheetReader{
 			startRow = 1;
 		}
 		
-		SheetReaderMergedRegionVo mergedRegionVo = null;
+		MergedRegionVo mergedRegionVo = null;
 		if(builder.merged !=MergedType.None) {
-			mergedRegionVo = new SheetReaderMergedRegionVo(sheet,builder.merged);
+			mergedRegionVo = new MergedRegionVo(sheet,builder.merged);
 		}
 
 		List<Map<String,Object>> record = new ArrayList<Map<String,Object>>(rowEndIndex);
@@ -232,7 +232,7 @@ public class SheetReader{
 	 * @return 返回每个字段名对应的值
 	 */
 	@SuppressWarnings("unchecked")
-	private Map<String/**字段名*/,Object/**字段值*/> getMergedValue(SheetReaderMergedRegionVo mergedRegionVo,List<FieldValue> values) {
+	private Map<String/**字段名*/,Object/**字段值*/> getMergedValue(MergedRegionVo mergedRegionVo,List<FieldValue> values) {
 		int emptyValueCount =0,size = values.size();
 		while(emptyValueCount < size && values.get(emptyValueCount).getValue() == null) {
 			emptyValueCount++;//空值个数

@@ -34,8 +34,8 @@ import com.yindangu.v3.business.plugin.execptions.EnviException;
 import com.yindangu.v3.business.plugin.execptions.PluginException;
 import com.yindangu.v3.business.vds.IVDS;
 import com.yindangu.v3.platform.excel.MergedType;
-import com.yindangu.v3.platform.excel.SheetReader;
-import com.yindangu.v3.platform.excel.SheetReader.SheetReaderBuilder;
+import com.yindangu.v3.platform.excel.POIExcelAction;
+import com.yindangu.v3.platform.excel.POIExcelAction.ReaderBuilder;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
 
 /**
@@ -275,14 +275,14 @@ class SaveDataBaseAction   {
         List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
         // 读取Excel的数据
         //FPOExcel excel = new FPOExcel();
-        SheetReaderBuilder rsb = new SheetReader.SheetReaderBuilder();
+        ReaderBuilder rsb = new POIExcelAction.ReaderBuilder();
         rsb.setInputStream(inputStream)
         		.setTable(dataSetMetaData)
         		.setSheetIndex(sheetIndex)
         		.setFieldMap(mapper)
         		.setMerged(pars.getMergedType())
         		; 
-        SheetReader rd = rsb.builder();
+        POIExcelAction rd = rsb.builder();
         result = rd.readData();
         return result; 
     }

@@ -11,8 +11,8 @@ import com.toone.v3.platform.rule.model.FModelMapper;
 import com.yindangu.v3.business.jdbc.api.model.IDataSetMetaData;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.platform.excel.MergedType;
-import com.yindangu.v3.platform.excel.SheetReader;
-import com.yindangu.v3.platform.excel.SheetReader.SheetReaderBuilder;
+import com.yindangu.v3.platform.excel.POIExcelAction;
+import com.yindangu.v3.platform.excel.POIExcelAction.ReaderBuilder;
 
 /**
  * @Author xugang
@@ -34,8 +34,8 @@ class FPOExcel {
     	if(sheetno <0) {
     		throw new ConfigException("sheetIndex不能小于0");
     	}
-    	SheetReaderBuilder rsb = new SheetReader.SheetReaderBuilder();
-        SheetReader sheetRead = rsb.setInputStream(inputStream)
+    	ReaderBuilder rsb = new POIExcelAction.ReaderBuilder();
+        POIExcelAction sheetRead = rsb.setInputStream(inputStream)
         		.setTable(dataSetMetaData)
         		.setSheetIndex(sheetno)
         		.setFieldMap(mm)
@@ -44,8 +44,8 @@ class FPOExcel {
         return rds;
     }
     
-    public List<Map<String,Object>> readExcelSheet(SheetReaderBuilder builder) {
-    	SheetReader sheetRead = builder.builder();
+    public List<Map<String,Object>> readExcelSheet(ReaderBuilder builder) {
+    	POIExcelAction sheetRead = builder.builder();
     	return sheetRead.readData();
     }
     
@@ -57,8 +57,8 @@ class FPOExcel {
      * @return
      */
     private List<Map<String,Object>> readSheetAll(InputStream is,FModelMapper mapper,IDataSetMetaData dataSetMetaData,MergedType type) {// NOPMD
-    	SheetReaderBuilder rsb = new SheetReader.SheetReaderBuilder();
-        SheetReader sheetRead = rsb.setInputStream(is)
+    	ReaderBuilder rsb = new POIExcelAction.ReaderBuilder();
+        POIExcelAction sheetRead = rsb.setInputStream(is)
         		.setTable(dataSetMetaData)
         		.setSheetIndex(-1)
         		.setFieldMap(mapper)
