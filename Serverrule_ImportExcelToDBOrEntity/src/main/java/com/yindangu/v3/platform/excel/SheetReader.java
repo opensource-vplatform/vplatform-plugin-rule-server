@@ -176,7 +176,7 @@ public class SheetReader{
 			mergedRegionVo = new SheetReaderMergedRegionVo(sheet,builder.merged);
 		}
 
-		List<Map<String,Object>> record = new ArrayList<Map<String,Object>>();
+		List<Map<String,Object>> record = new ArrayList<Map<String,Object>>(rowEndIndex);
 		for (int rowIdx = startRow - 1; rowIdx <= rowEndIndex; rowIdx++) {
 			Row row = sheet.getRow(rowIdx);
 			if (row == null) {
@@ -200,13 +200,16 @@ public class SheetReader{
 				for(FProperty pm : columns) {
 					int col = pm.getColumn();
 					Cell cell = row.getCell(col);
-					if (cell == null) {
-						continue ;
-					}
+					Object value ;
 					String fieldName = pm.getName();
 					ColumnType type = pm.getType();
-					Object value = parseCellValue(cell, fieldName,type,table);
-
+					if (cell == null) {
+						value = null ;
+					}
+					else {
+						value = parseCellValue(cell, fieldName,type,table);
+					}
+					//每个字段都要有行列信息
 					values.add(new FieldValue(fieldName, value, rowIdx, col));
 				}
 			}
@@ -226,10 +229,10 @@ public class SheetReader{
 	 * 处理合并单元格
 	 * @param mergedRegionVo
 	 * @param values
-	 * @return
+	 * @return 返回每个字段名对应的值
 	 */
 	@SuppressWarnings("unchecked")
-	private Map<String,Object> getMergedValue(SheetReaderMergedRegionVo mergedRegionVo,List<FieldValue> values) {
+	private Map<String/**字段名*/,Object/**字段值*/> getMergedValue(SheetReaderMergedRegionVo mergedRegionVo,List<FieldValue> values) {
 		int emptyValueCount =0,size = values.size();
 		while(emptyValueCount < size && values.get(emptyValueCount).getValue() == null) {
 			emptyValueCount++;//空值个数

@@ -16,9 +16,9 @@ import com.yindangu.v3.platform.excel.SheetReader.SheetReaderBuilder;
 
 /**
  * @Author xugang
- * @Date 2021/7/26 10:11
+ * @deprecated 不在维护
  */
-public class FPOExcel {
+class FPOExcel {
 	private static final Logger log = LoggerFactory.getLogger(FPOExcel.class);
 	 
 
