@@ -29,7 +29,7 @@ public class ClearEntityData implements IRule  {
 	private static final String D_dtMaster="dtMaster";
 	@Override
 	public IRuleOutputVo evaluate(IRuleContext context) {
-		log.info("使用新插件接口..");
+		//log.info("使用新插件接口..");
 		//Map<String, Object> inParams = (Map<String, Object>) context.getRuleConfig().getConfigParams();
 		List<Map> dtMaster = (List<Map>)context.getPlatformInput(D_dtMaster);
 		if (VdsUtils.collection.isEmpty(dtMaster)) {
