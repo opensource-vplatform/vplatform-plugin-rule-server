@@ -128,7 +128,8 @@ class SheetReaderMergedRegionVo {
 			throw new ConfigException("未初始化合并的单元格信息，请先调用readMergedRegion()方法");
 		}
 		RegionVo rs = null;
-		for(RegionVo v : regions) {
+		for(int i = 0,size = regions.size();i < size ;i++) {
+			RegionVo v = regions.get(i);
 			int x = v.getX(),y = v.getY();
 			if(row >= y && col >= x) {
 				boolean merged = false;
