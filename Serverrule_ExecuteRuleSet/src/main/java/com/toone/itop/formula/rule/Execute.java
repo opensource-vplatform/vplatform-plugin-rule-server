@@ -70,6 +70,16 @@ class Execute{
 			byRefDataView.appendByreferece(null, false);
 		}
 	}
+	protected IRuleOutputVo execute(IRuleContext context,InvokeTargetVo invokeVo
+			,List<Map<String, Object>> invokeParams,List<Map<String, Object>> returnMappings) {
+		try {
+			return execute0(context, invokeVo, invokeParams, returnMappings);
+		}
+		catch(RuntimeException e) {
+			logger.error(invokeVo.getComponentCode() + "." + invokeVo.getRuleSetCode() + "发生错误:" + e.getMessage());
+			throw e;
+		}
+	}
 	/**
 	 * 
 	 * @param context
@@ -78,7 +88,7 @@ class Execute{
 	 * @param returnMappings 活动集返回信息设置
 	 * @return
 	 */
-	protected IRuleOutputVo execute(IRuleContext context,InvokeTargetVo invokeVo
+	private IRuleOutputVo execute0(IRuleContext context,InvokeTargetVo invokeVo
 			,List<Map<String, Object>> invokeParams,List<Map<String, Object>> returnMappings) {
 		long start=System.currentTimeMillis();  
 		
@@ -979,12 +989,13 @@ class Execute{
 			//vobject.getContextObject(key, type);
 			IDataView dataView = (IDataView)vobject.getContextObject(targetName, targetType);
 			if(dataView == null) {
-				throw new ConfigException("执行活动集目标实体变量赋值失败，返回目标类型" + targetType+ "不存在DataView");
+				throw new ConfigException(targetName + "执行活动集目标实体变量赋值失败，返回目标类型" + targetType+ "不存在DataView");
 			}
+			
 			return dataView;
 		}
 		else {
-			throw new ConfigException("执行活动集目标实体变量赋值失败，返回目标类型" + targetType
+			throw new ConfigException(targetName + "执行活动集目标实体变量赋值失败，返回目标类型" + targetType
 					+ "不正确，目前只支持类型ruleSetVariant及ruleSetOutput");
 		}
 		/*
