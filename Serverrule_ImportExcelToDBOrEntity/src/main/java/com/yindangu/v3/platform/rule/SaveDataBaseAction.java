@@ -95,7 +95,7 @@ class SaveDataBaseAction   {
     	private boolean tree;
     	private Map treeStructMap;
     	private List<String> checkItems;
-    	private Map<String,?> variableMap;
+    	private Map<String,?> expressionFieldMap;
     	
     	private IDataView sourceDataView;
     	//private boolean physcTable;
@@ -161,12 +161,12 @@ class SaveDataBaseAction   {
 		}
 
 		/**配置了表达式的值(不会null)*/
-		public Map<String, ?> getVariableMap() {
-			return variableMap;
+		public Map<String, ?> getExpressionFieldMap() {
+			return expressionFieldMap;
 		}
 		/**配置了表达式的值*/
-		public void setVariableMap(Map<String, ?> variableMap) {
-			this.variableMap = variableMap;
+		public void setExpressionFieldMap(Map<String, ?> variableMap) {
+			this.expressionFieldMap = variableMap;
 		}
 		/**内存表,用于获取字段类型*/
 		public IDataView getSourceDataView() {
@@ -293,14 +293,14 @@ class SaveDataBaseAction   {
      * @return 获取检查重复字段在Excel中的数据
      */
 	private Map<String/** 字段名 */, Set<Object>/** 字段值 */ > checkExistRecord(ParamsVo vo, List<Map<String, Object>> excelRecords) {
-		Map<String, ?> variableMap = vo.getVariableMap();
+		Map<String, ?> expressionFieldMap = vo.getExpressionFieldMap();
 		List<String> checkItems = vo.getCheckItems();
 		Map<String, Set<Object>> sourceFieldData = new LinkedHashMap<String, Set<Object>>(); // 获取检查重复字段在Excel中的数据
 
 		for (Map<String, Object> map : excelRecords) {
 
 			// 把其他表达式的值集合加到数据集里
-			map.putAll(variableMap);
+			map.putAll(expressionFieldMap);
 			for (String item : checkItems) {
 				Object value = map.get(item);
 				Set<Object> rds = sourceFieldData.get(item);
@@ -360,7 +360,7 @@ class SaveDataBaseAction   {
     private IDataView updateToDataBase0(ParamsVo vo, List<Map<String, Object>> excelRecords) { 
         //过滤树字段
     	Map treeStructMap = vo.getTreeStructMap(); 
-    	Map<String, List<Map<String, Object>>> groupResult =splitGroupExcelData(vo.isTree(),treeStructMap, excelRecords, vo.getVariableMap());
+    	Map<String, List<Map<String, Object>>> groupResult =splitGroupExcelData(vo.isTree(),treeStructMap, excelRecords, vo.getExpressionFieldMap());
     	List<String> checkItems = vo.getCheckItems();
        //int groupNum = 0; //分组序号
         IDataView targetDataView = vo.getTargetDataView();
@@ -416,7 +416,7 @@ class SaveDataBaseAction   {
      * @return
      */
     private Map<String/**分组名*/,List<Map<String, Object>>/**分组数据*/> splitGroupExcelData
-    	(boolean tree,Map treeStructMap, List<Map<String, Object>> excelRecords,Map<String,?> variableMap){
+    	(boolean tree,Map treeStructMap, List<Map<String, Object>> excelRecords,Map<String,?> expressionFieldMap){
     	 String filterTreeFied = null;
          if (tree) {
          	Object fd = treeStructMap.get(TreeColumn.BusiFilterField.columnName());
@@ -432,7 +432,7 @@ class SaveDataBaseAction   {
              for (Map<String, Object> map : excelRecords) {
                  String fiterValue = (String) map.get(filterTreeFied) ;//过滤字段值
                  if(fiterValue == null ) {
-                 	fiterValue = (String) variableMap.get(filterTreeFied)  ;
+                 	fiterValue = (String) expressionFieldMap.get(filterTreeFied)  ;
                  }
                  if (VdsUtils.string.isEmpty(fiterValue)) { //过滤字段值为空
                      throw new BusinessException("过滤树字段值为空");
@@ -459,27 +459,30 @@ class SaveDataBaseAction   {
      * @param checkItems
      * @return
      */
-    private String checkDataRepeatForKey(Map<String, Object> map, Object repeatDatas, List<String> checkItems) {
-        Map<String, List<Object>> repeatData = (Map<String, List<Object>>) repeatDatas;
-        if (repeatData.keySet().size() < 1 || checkItems.size() < 1)
+    private String checkDataRepeatForKey(Map<String, Object> map, Map<String, List<Object>> repeatData, List<String> checkItems) {
+        //Map<String, List<Object>> repeatData = (Map) repeatDatas;
+        if (repeatData.isEmpty() || checkItems.isEmpty()) {
             return null;
-        String tmpKey = "";
+        }
+        StringBuilder tmpKey = new StringBuilder("[");
         for (int i = 0; i < checkItems.size(); i++) {
             String key = checkItems.get(i);
             Object value = map.get(key);
             if (value != null) {
-                tmpKey = tmpKey + key + "=" + value + ",";
+                tmpKey.append(key).append('=').append(value).append(',');
             }
         }
-        if (!tmpKey.equals("")) {
-            tmpKey = "[" + tmpKey.substring(0, tmpKey.length() - 1) + "]";
+        String key ;
+        int len = tmpKey.length() ;
+        if (len>1) {
+            tmpKey .setCharAt(len - 1, ']');
+            String s = tmpKey.toString();
+            key = (repeatData.containsKey(s) ? s : null);
         } else {
-            return null;
+            key = null;
         }
-        if (repeatData.containsKey(tmpKey)) {
-            return tmpKey;
-        } else
-            return null;
+        
+        return key;
     }
 
     /**
@@ -1191,7 +1194,7 @@ class SaveDataBaseAction   {
             if (innercode != null && innercode.length() == 5) {
                 orderNos.add(Integer.parseInt(orderNo + ""));
             }
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder( "[");
             for (String columnName : checkFields) {
                 //String columnName = checkFields.get(j);
                 Object value = getValue(singleRecord, columnName, isPhyscTable);
@@ -1201,10 +1204,12 @@ class SaveDataBaseAction   {
                 //String codeValue = columnName + "=" + value;
                 sb.append(columnName).append('=').append(value).append(',');
             }
-            if (sb.length()==0) {
+            int len = sb.length();
+            if (len==1) {
                 continue;
             }
-            String tmpKey = "[" + sb.substring(0, sb.length() - 1) + "]";
+            sb.setCharAt(len-1, ']');
+            String tmpKey = sb.toString() ;//"[" + sb.substring(0, sb.length() - 1) + "]";
             List<Object> ids = resultMap.get(tmpKey);
             if (ids == null) {
                 ids = new ArrayList<Object>();
@@ -1365,27 +1370,28 @@ class SaveDataBaseAction   {
         Map<String, List<Object>> resultMap = new HashMap<String, List<Object>>();
         
         for (Object singleRecord:matchDatas) { 
-            StringBuilder tmpKey = new StringBuilder();
+            StringBuilder sb = new StringBuilder("[");
             for (String  columnName : checkFields) {
                 //String columnName = checkFields.get(j);
                 Object value = getValue(singleRecord, columnName, physcTable);
                 if (value instanceof Number) {
                     value = new Double(((Number) value).doubleValue());
                 } 
-                tmpKey.append(columnName).append('=').append(value).append(',');
+                sb.append(columnName).append('=').append(value).append(',');
             }
-            if (tmpKey.length() ==0) {
+            int len = sb.length();
+            if (len==1) {
                 continue;
             }
-            String key =  "[" + tmpKey.substring(0, tmpKey.length() - 1) + "]";
+            sb.setCharAt(len - 1 , ']');
+            String key = sb.toString();
             List<Object> ids = resultMap.get(key);
             if (ids == null) {
                 ids = new ArrayList<Object>();
                 resultMap.put(key, ids);
             }
             if (physcTable) {
-            	Map rd = (Map) singleRecord;
-                String id = (String)rd.get("id");
+                String id = getValue(singleRecord, "id", true);
                 if (id != null) {
                     ids.add(id);
                 }

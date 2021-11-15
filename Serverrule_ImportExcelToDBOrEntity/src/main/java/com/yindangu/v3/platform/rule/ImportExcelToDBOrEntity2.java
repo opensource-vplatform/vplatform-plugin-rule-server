@@ -57,15 +57,22 @@ public class ImportExcelToDBOrEntity2 implements IRule {
 	@Override
     public IRuleOutputVo evaluate(IRuleContext context) {
         long starTime = System.currentTimeMillis();
-        IVDS vds = VDS.getIntance() ;
-        String fileId = vds.getFormulaEngine().eval(context.getPlatformInput("fileSource").toString()); // 文件标识
-        if (fileId == null || fileId.length()==0) { 
-            throw new ConfigException("后台导入Excel规则，获取文件ID标识为空，请检查");
-        }
         
         InputStream inputStream = null;
         try {
-        	MergedType mergedType ;{
+        	IVDS vds = VDS.getIntance() ;
+        	MergedType mergedType ; 
+        	String fileId ;{
+        		Object fs =context.getPlatformInput("fileSource"); 
+        		if(fs == null) {
+        			throw new ConfigException("规则参数丢失:请检查发布包的[ruleConfig]是否有配置[fileSource]");
+        		}
+        		
+        		fileId = vds.getFormulaEngine().eval(fs.toString()); // 文件标识
+	            if (VdsUtils.string.isEmpty(fileId)) { 
+	                throw new ConfigException("后台导入Excel规则，获取文件ID标识为空，请检查");
+	            }
+        	
         		String types = (String)context.getInput(D_INPUT_MergedType);
         		if((mergedType = MergedType.getType(types)) == null) {
         			mergedType = MergedType.None;//兼容历史，不合并

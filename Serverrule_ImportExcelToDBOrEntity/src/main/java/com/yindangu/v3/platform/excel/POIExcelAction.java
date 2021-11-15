@@ -489,10 +489,12 @@ public class POIExcelAction{
             Row firstRow = sheet.getRow(i);
             if (firstRow == null) {
                 continue;
-
             }
             //去掉break改成一个excel列可以对应多个字段
             for (Cell c:firstRow) { 
+            	if(c == null || c.getCellType() != Cell.CELL_TYPE_STRING) {
+            		continue;//标题只认字符串类型
+            	}
                 String cellValue = getRichStringCellValue(c) ;// cell.getRichStringCellValue().getString();
                 String trimValue = trimAllSpaceAndRF(cellValue);
                 for (FProperty pm : mps ) {

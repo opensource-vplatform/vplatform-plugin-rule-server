@@ -22,6 +22,7 @@ import com.toone.v3.platform.rule.util.ObjPropertyUtil2;
 import com.yindangu.commons.CaseInsensitiveLinkedMap;
 import com.yindangu.v3.business.VDS;
 import com.yindangu.v3.business.file.api.model.IAppFileInfo;
+import com.yindangu.v3.business.formula.api.IFormulaEngine;
 import com.yindangu.v3.business.jdbc.api.model.ColumnType;
 import com.yindangu.v3.business.jdbc.api.model.ITable;
 import com.yindangu.v3.business.metadata.api.IDataView;
@@ -131,18 +132,16 @@ public class ImportExcelToDBOrEntity implements IRule {
          }
 
          {
-	         Map<String, Object> varMap = new HashMap<String, Object>(); // 配置了表达式的值
-	         boolean isImportId = getOtherData(mappings, varMap); // 是否存在id导入
-	         List<String> checkItems = (List<String>) cfgMap.get("checkItems"); // 获取检查重复的字段
+	         Map<String, Object> expressionFieldMap = new HashMap<String, Object>(); // 配置了表达式的值
+	         boolean isImportId = getOtherData(mappings, expressionFieldMap); // 是否存在id导入
+	         List<String> configCheckItems = (List<String>) cfgMap.get("checkItems"); // 获取检查重复的字段
 	         // 如果不导入id，就不检查id，其他情况都检查id
-	         if (VdsUtils.collection.isEmpty(checkItems) ) {
-	             checkItems = new ArrayList<String>();
-	         }
+	         List<String> checkItems =(configCheckItems == null ? new ArrayList<String>() : new ArrayList<>(configCheckItems));
 	         if (isImportId && !checkItems.contains("id")) {
 	             checkItems.add("id");
 	         }
 	         vo.setCheckItems(checkItems);
-	         vo.setVariableMap(varMap);
+	         vo.setExpressionFieldMap(expressionFieldMap);
 	         vo.setImportId(isImportId);
          }
 
@@ -367,20 +366,25 @@ public class ImportExcelToDBOrEntity implements IRule {
      * @param mappings 映射关系
      * @return
      */
-    private boolean getOtherData(List<Map<String, Object>> mappings, Map<String, Object> varMap) {
+    private boolean getOtherData(List<Map<String, Object>> mappings, Map<String, Object> expressionFieldMap) {
         boolean isImportIdTag = false;
+        IFormulaEngine en = getVDS().getFormulaEngine();
         for (Map<String, Object> map : mappings) {
-            if (!isImportIdTag && map.get("fieldCode").equals("id")) {
+        	String fieldCode = (String)map.get("fieldCode");
+        	String type = (String) map.get("sourceType");
+        	
+        	if (!isImportIdTag && "id".equalsIgnoreCase(fieldCode)) {
                 isImportIdTag = true;
             }
-            String type = (String) map.get("sourceType");
-            if (type.equals("expression")) {
-                Object sourceValue = getVDS().getFormulaEngine().eval(map.get("sourceValue").toString());
+            
+            if ("expression".equals(type)) {
+                Object sourceValue = en.eval(map.get("sourceValue").toString());
                 if (null == sourceValue) {
-                    logger.warn("字段[" + map.get("fieldCode").toString() + "对应的表达式值为空，所以不作处理]");
-                    continue;
+                    logger.warn("字段[" + fieldCode + "对应的表达式值为空，所以不作处理]");
                 }
-                varMap.put((String) map.get("fieldCode"), sourceValue);
+                else {
+                	expressionFieldMap.put(fieldCode, sourceValue);
+                }
             }
         }
         return isImportIdTag;
