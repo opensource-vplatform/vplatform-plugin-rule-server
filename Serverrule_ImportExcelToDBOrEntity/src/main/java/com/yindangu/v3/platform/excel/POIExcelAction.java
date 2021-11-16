@@ -33,7 +33,8 @@ import com.yindangu.v3.business.plugin.execptions.BusinessException;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.EnviException;
 import com.yindangu.v3.business.plugin.execptions.PluginException;
-import com.yindangu.v3.platform.excel.MergedRegionVo.RegionVo; 
+import com.yindangu.v3.platform.excel.MergedRegionVo.RegionVo;
+import com.yindangu.v3.platform.plugin.util.VdsUtils; 
 /**
  * 读取Sheet内容
  * @author jiqj
@@ -116,6 +117,7 @@ public class POIExcelAction{
 	 * 使用 sheet.getPhysicalNumberOfRows()<br/>
 	 * 其他的 readExcel使用了 sheet.getLastRowNum();<br/>
 	 * https://blog.csdn.net/xiaozaq/article/details/54097720
+	 * @return 返回记录数（取得数据需要通过 {@linkplain #getExcelRecords()}方法）
 	 */
 	public List<Map<String,Object>> readData(){
 		int sheetIndex = builder.sheetIndex;
@@ -139,7 +141,7 @@ public class POIExcelAction{
 			}
 			else {
 	        	throw new EnviException("sheet下标越界(sheet总数是:" + sheetCount + ",sheetIndex:" + sheetIndex + ")");
-			}
+			} 
 			return records;
 		}
 	    catch (PluginException e) {
@@ -148,9 +150,32 @@ public class POIExcelAction{
 	        throw new EnviException("读取Excel出错："+e.getMessage(), e);
 	    }
 		finally {
-			close(builder.inputStream);
+			//close(builder.inputStream); //谁打开谁关闭
 		}
 	}
+	/**必须保证 rowIndex 是有序的*/
+	private List<ExcelRowVo> excelRows; 
+	
+	private String firstSheetName;
+	/** 返回第一个sheetName*/
+	public String getSheetName() {
+		return firstSheetName;
+	}
+	/**设置第一个sheetName*/
+	private void setFirstSheetName(String sheetName) {
+		if(VdsUtils.string.isEmpty(firstSheetName)) {
+			firstSheetName = sheetName ;
+		}
+	}
+	private MergedRegionVo<ExcelCellVo> mergedRegionVo ;
+	/**所有的合并行列*/
+	private MergedRegionVo<ExcelCellVo> getMergedRegionVo() {
+		return mergedRegionVo;
+	}
+	private void setMergedRegionVo(MergedRegionVo<ExcelCellVo> vo) {
+		mergedRegionVo = vo;
+	}
+	
 	protected List<Map<String,Object>> readSheet(Sheet sheet,boolean checkHeader){
 		int startRow = 1;
 		IDataSetMetaData table = builder.table;
@@ -160,6 +185,7 @@ public class POIExcelAction{
 		if(rowEndIndex <=0) {
 			return Collections.emptyList();
 		}
+		setFirstSheetName(sheet.getSheetName());
 		
 		Collection<FProperty> columns = null;
 		if(builder.fieldMap != null) {
@@ -171,19 +197,24 @@ public class POIExcelAction{
 			startRow = 1;
 		}
 		
-		MergedRegionVo mergedRegionVo = null;
+		MergedRegionVo<ExcelCellVo> mergedRegionVo = null;
 		if(builder.merged !=MergedType.None) {
-			mergedRegionVo = new MergedRegionVo(sheet,builder.merged);
+			mergedRegionVo = new MergedRegionVo<ExcelCellVo>(sheet,builder.merged);
+			this.setMergedRegionVo(mergedRegionVo); 
 		}
 
 		List<Map<String,Object>> record = new ArrayList<Map<String,Object>>(rowEndIndex);
+		this.excelRows = new ArrayList<ExcelRowVo>(rowEndIndex);
+		
 		for (int rowIdx = startRow - 1; rowIdx <= rowEndIndex; rowIdx++) {
-			Row row = sheet.getRow(rowIdx);
+			Row row = sheet.getRow(rowIdx); //下标由0开始
 			if (row == null) {
 				continue ;
 			}
 			
-			List<FieldValue> values = new ArrayList<FieldValue>();
+			List<ExcelCellVo> values = new ArrayList<ExcelCellVo>();
+			this.excelRows.add(new ExcelRowVo(rowIdx, values));
+			
 			if(columns == null) { //全部获取
 				int cellCount = row.getLastCellNum();
 				for (int col = 0; col < cellCount; col++) {
@@ -193,7 +224,7 @@ public class POIExcelAction{
 					}
 					String fieldName = String.valueOf(cell.getColumnIndex());
 					Object value = parseCellValue(cell, fieldName);	
-					values.add(new FieldValue(fieldName, value, rowIdx, col));
+					values.add(new ExcelCellVo(fieldName, value, rowIdx, col));
 				}
 			}
 			else { //有映射对象
@@ -210,13 +241,13 @@ public class POIExcelAction{
 						value = parseCellValue(cell, fieldName,type,table);
 					}
 					//每个字段都要有行列信息
-					values.add(new FieldValue(fieldName, value, rowIdx, col));
+					values.add(new ExcelCellVo(fieldName, value, rowIdx, col));
 				}
 			}
 			
 			//如果此行数据全部为空，则不需要保存
 			if (values.size()>0 ) {
-				Map<String,Object> rds = getMergedValue(mergedRegionVo,values);
+				Map<String,Object> rds = getMergedValue(values);
 				
 				if(rds.size()>0) {
 					record.add(rds);
@@ -232,7 +263,7 @@ public class POIExcelAction{
 	 * @return 返回每个字段名对应的值
 	 */
 	@SuppressWarnings("unchecked")
-	private Map<String/**字段名*/,Object/**字段值*/> getMergedValue(MergedRegionVo mergedRegionVo,List<FieldValue> values) {
+	private Map<String/**字段名*/,Object/**字段值*/> getMergedValue(List<ExcelCellVo> values) {
 		int emptyValueCount =0,size = values.size();
 		while(emptyValueCount < size && values.get(emptyValueCount).getValue() == null) {
 			emptyValueCount++;//空值个数
@@ -242,8 +273,9 @@ public class POIExcelAction{
 		}
 		
 		Map<String,Object> rds = new CaseInsensitiveLinkedMap();// NOPMD
+		MergedRegionVo<ExcelCellVo> mergedRegionVo = getMergedRegionVo();
 		if(mergedRegionVo == null) { //不需要合并单元格处理
-			for(FieldValue e :  values) {
+			for(ExcelCellVo e :  values) {
 				if(e.getValue()!=null) {
 					rds.put(e.getKey(), e.getValue());
 				}
@@ -252,31 +284,58 @@ public class POIExcelAction{
 		}
 		////////////////////////////////
 		
-		for(FieldValue fv :values) {//没有取得cell的值，就判断是否合并值
-			Object val = fv.getValue(); 
-			RegionVo regionVo = mergedRegionVo.getMergedRegion(fv.getRow(), fv.getColumn());
-			if(regionVo != null) {
-				if(val == null) { 
-					val = regionVo.getMergedValue();
-				}
-				else if(regionVo.getMergedValue() == null){//合并单元格，只有第一个格是有值的
-					regionVo.setMergedValue(val);
-				}
-				else {
-					String s ="合并单元格，只有第一个格是有值的,请检查逻辑是否正确：row=" 
-							+ fv.getRow()+ ",col=" + fv.getColumn() + ",第一个值:" + regionVo.getMergedValue()
-							+ ",第二个值：" +val;
-					throw new ConfigException(s);
+		for(ExcelCellVo cell :values) {//没有取得cell的值，就判断是否合并值
+			RegionVo<ExcelCellVo> regionVo = mergedRegionVo.getMergedRegion(cell.getRow(), cell.getColumn());
+			ExcelCellVo mergedCell ;//合并格的第一元素
+			if(regionVo == null) { //没有找到，表示没有合并
+				mergedCell = cell;
+			}
+			else {
+				mergedCell =(ExcelCellVo) regionVo.getValue(); //第一元素
+				if(mergedCell == null){//合并单元格，只有第一个格是有值的
+					mergedCell = cell;
+					regionVo.setValue(cell);
 				}
 			}
 			
-			if(val!=null) {
-				rds.put(fv.getKey(), val);
-			}
+			rds.put(mergedCell.getKey(), mergedCell.getValue());
+			
 		}
 		return rds;
 	}
 	
+	/**
+	 * 读取指定行列的数据（合并方式与{@linkplain ReaderBuilder#setMerged(MergedType)}保持一致）
+	 * @param rowIndex 第一行由0开始
+	 * @param columnIndex 第一列行由0开始
+	 * @return
+	 */
+	public Object getCellValue(int rowIndex,int columnIndex) {
+		if(rowIndex < 0 || columnIndex < 0) {
+			throw new EnviException("下标越界，行列都必须大于0");
+		} 
+
+		MergedRegionVo<ExcelCellVo> mg = this.getMergedRegionVo();
+		ExcelCellVo resultCell = null;
+		if(mg != null) {//合并取值
+			RegionVo<ExcelCellVo> vo = mg.getMergedRegion(rowIndex, columnIndex);
+			resultCell = (vo == null ? null : vo.getValue()) ; //返回null表示没有合并格
+		}
+		if(resultCell == null) {//每个单元格分散处理(找对应行，对应列)
+			BinarySearch  searchRow = new BinarySearch(excelRows);
+			ExcelRowVo rows = searchRow.findByIndex(rowIndex);
+			//ExcelCellVo cell = null;
+			if(rows != null) { //不存在数据 
+				BinarySearch searchCell = new BinarySearch(rows.getCells());
+				resultCell = searchCell.findByIndex(columnIndex);
+			}
+		}
+			
+		return (resultCell == null ? null : resultCell.getValue()) ;
+	}
+ 
+ 
+
 	/**
 	 * 没有vtable的情况
 	 * @param cell
@@ -557,21 +616,54 @@ public class POIExcelAction{
     		log.error("",e);
     	}
     }
-	private class FieldValue implements Map.Entry<String, Object>{
+    
+    private class ExcelRowVo implements IBinarySearchAtom{
+    	private int index;
+    	private List<ExcelCellVo> cells;
+    	public ExcelRowVo(int rowIndex,List<ExcelCellVo> cells) {
+    		this.index = rowIndex;
+    		this.cells = cells;
+    	}
+    	@Override
+    	public String toString() {
+    		return String.valueOf(index) + "," + String.valueOf(cells== null?0:cells.size());
+    	}
+ 
+		public List<ExcelCellVo> getCells() {
+			return cells;
+		}
+ 
+		/**行下标，0开始
+		public void setIndex(int rowIndex) {
+			this.index = rowIndex;
+		}*/
+
+		/**行下标，0开始*/
+		@Override
+		public int getIndex() { 
+			return index;
+		}
+    }
+    /**
+     * 每格单元格的数据
+     * @author jiqj 
+     */
+	private class ExcelCellVo implements Map.Entry<String, Object>,IBinarySearchAtom{
 		private final String key;
 		private Object value;
 		private final int column ,row;
-		public FieldValue(String key,Object value,int row,int column) {
+		public ExcelCellVo(String key,Object value,int row,int column) {
 			this.key = key;
 			this.value = value;
 			this.row = row;
 			this.column =column;
 		}
+		/**字段名*/
 		@Override
 		public String getKey() { 
 			return key;
 		}
-
+		/**值*/
 		@Override
 		public Object getValue() { 
 			return value;
@@ -583,9 +675,18 @@ public class POIExcelAction{
 			this.value = val;
 			return o;
 		}
+		
+
+		/**列下标,0开始*/
+		@Override
+		public int getIndex() { 
+			return getColumn();
+		}
+		/**列下标,0开始*/
 		public int getColumn() {
 			return column;
 		}
+		/**行下标,0开始*/
 		public int getRow() {
 			return row;
 		}
@@ -595,6 +696,53 @@ public class POIExcelAction{
 			sb.append("key:").append(key).append(",value:").append(value)
 				.append(",row:").append(row).append(",column:").append(column);
 			return sb.toString();
+		}
+	}
+	private static interface IBinarySearchAtom{
+		public int getIndex();
+	}
+	/**玩下算法: 二分查找法*/
+	private static class BinarySearch{
+		private final List<? extends IBinarySearchAtom> sortAtoms;
+		private int callDeep ;
+		public BinarySearch(List<? extends IBinarySearchAtom> atoms) {
+			sortAtoms = atoms;
+			callDeep = 0;
+		}
+		@SuppressWarnings("unchecked")
+		public <T> T findByIndex(int findIndex) {
+			return (T)findByIndex0(findIndex, 0, sortAtoms.size()-1);
+		}
+		
+		/**
+		 * 二分查找法,前提 {@linkplain #excelRows}必须有序
+		 * @param findIndex 需要查找的id
+		 * @param startIndex 开始位置 x >=0 
+		 * @param lastIndex 结束位置  <= x
+		 * @return
+		 */
+		private IBinarySearchAtom findByIndex0(final int findIndex,final int startIndex,final int lastIndex) {
+			if(startIndex > lastIndex) {
+				return null;
+			}
+			else if(callDeep >128) {
+				throw new EnviException("BinarySearch.findByIndex0递归深度异常，请检查逻辑，超:" + callDeep);
+			}
+			callDeep ++;
+			int middleIndex =  (lastIndex + startIndex)/ 2;
+			IBinarySearchAtom vo = sortAtoms.get(middleIndex);
+			int rowIdx = vo.getIndex();
+			if(findIndex < rowIdx) { // 记录在前半部分(结束位置左移位)
+				vo = findByIndex0(findIndex, startIndex, middleIndex-1);
+			}
+			else if(findIndex> rowIdx){ //记录在后半部分(开始位置右移位)
+				vo = findByIndex0(findIndex, middleIndex+1 , lastIndex);
+			}
+			else { //相同
+				//return vo;
+			}
+			callDeep --;
+			return vo;
 		}
 	}
 }

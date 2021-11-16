@@ -245,22 +245,21 @@ class SaveDataBaseAction   {
     	
     }
     // 20170423 最新
-	public IDataView saveDataBase(ParamsVo vo, InputStream inputStream) {
-    	List<Map<String, Object>> records = readExcelData(vo, inputStream);
+	public ExcelResultVo saveDataBase(ParamsVo vo, InputStream inputStream) {
+		POIExcelAction excel = readExcelData(vo, inputStream);
+    	List<Map<String, Object>> records = excel.readData();//readExcelData(vo, inputStream);
     	IDataView dv = updateToDataBase(vo, records);
-    	return dv; 
+    	return new ExcelResultVo(dv,excel,vo.getSheetIndex()); 
     }
-    
-    
+
 
     /**
      * 读取excel数据
      * @param pars
      * @param inputStream
      * @return
-     */
-    
-    private List<Map<String, Object>> readExcelData(ParamsVo pars, InputStream inputStream){
+     */    
+    private POIExcelAction readExcelData(ParamsVo pars, InputStream inputStream){
     	FModelMapper mapper = pars.getModelMapper();
         IDataSetMetaData dataSetMetaData = pars.getTargetDataView().getMetadata(); 
         int sheetIndex = pars.getSheetIndex();
@@ -272,7 +271,7 @@ class SaveDataBaseAction   {
         } catch (Exception e) {
             throw new ConfigException("获取配置的sheet序号失败", e);
         }*/
-        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        //List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
         // 读取Excel的数据
         //FPOExcel excel = new FPOExcel();
         ReaderBuilder rsb = new POIExcelAction.ReaderBuilder();
@@ -283,8 +282,7 @@ class SaveDataBaseAction   {
         		.setMerged(pars.getMergedType())
         		; 
         POIExcelAction rd = rsb.builder();
-        result = rd.readData();
-        return result; 
+        return rd; 
     }
     /**
      * 检查重复， 保存Excel的全部id值，如果不导入id，则无数据。用于判断是否有重复id导入。
@@ -1502,6 +1500,7 @@ class SaveDataBaseAction   {
 			this.matchData = matchData;
 		}
     }
+    
     private class RepeatTreeVo extends RepeatVo{ 
     	private Map<String, List<Integer>> repeatOrderNo;
     	private String parentIden;
@@ -1523,5 +1522,39 @@ class SaveDataBaseAction   {
 		public void setParentIden(String parentIden) {
 			this.parentIden = parentIden;
 		} 
+    }
+    /**
+     * 读取excel后的返回值
+     * @author jiqj
+     *
+     */
+    public class ExcelResultVo{
+    	private IDataView dataView;
+    	private POIExcelAction excel;
+    	private int sheetIndex;
+    	protected ExcelResultVo(IDataView dataView,POIExcelAction excel,int sheetIndex) {
+    		this.dataView = dataView;
+    		this.excel = excel ;
+    	}
+    	public String getSheetName() {
+    		return excel.getSheetName();
+    	}
+    	/**-1表示全部*/
+    	public int getSheetIndex() {
+    		return sheetIndex;
+    	}
+    	/**
+    	 * 读取指定行列的数据（合并方式与{@linkplain ReaderBuilder#setMerged(MergedType)}保持一致）
+    	 * @param row 第一行由1开始
+    	 * @param column 第列行由1开始
+    	 * @return
+    	 */
+    	public Object getCellValue(int row,int column) {
+    		return excel.getCellValue(row -1, column -1);
+    	}
+    	
+		public IDataView getDataView() {
+			return dataView;
+		}
     }
 }

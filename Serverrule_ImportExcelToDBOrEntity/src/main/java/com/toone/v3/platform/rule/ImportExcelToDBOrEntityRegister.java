@@ -8,12 +8,15 @@ import com.yindangu.v3.platform.rule.ImportExcelToDBOrEntity;
 import com.yindangu.v3.platform.rule.ImportExcelToDBOrEntity2;
 import com.yindangu.v3.plugin.vds.reg.api.IRegisterPlugin;
 import com.yindangu.v3.plugin.vds.reg.api.builder.IEditorBuilder;
+import com.yindangu.v3.plugin.vds.reg.api.builder.IEntityBuilder;
+import com.yindangu.v3.plugin.vds.reg.api.builder.IEntityBuilder.IFieldProfileBuilder;
 import com.yindangu.v3.plugin.vds.reg.api.builder.IRuleBuilder;
 import com.yindangu.v3.plugin.vds.reg.api.model.EditorType;
 import com.yindangu.v3.plugin.vds.reg.api.model.IComponentProfileVo;
 import com.yindangu.v3.plugin.vds.reg.api.model.IPluginProfileVo;
 import com.yindangu.v3.plugin.vds.reg.api.model.IRuleProfileVo.IReferenceProfileVo;
 import com.yindangu.v3.plugin.vds.reg.api.model.IRuleProfileVo.IRuleInputProfileVo;
+import com.yindangu.v3.plugin.vds.reg.api.model.IRuleProfileVo.IRuleOutputProfileVo;
 import com.yindangu.v3.plugin.vds.reg.api.model.VariableType;
 import com.yindangu.v3.plugin.vds.reg.common.RegVds;
 
@@ -100,14 +103,88 @@ public class ImportExcelToDBOrEntityRegister implements IRegisterPlugin {
         	.setType(VariableType.Char)
         	.setEditor(editBuild.build())
         	.build();
-        	
+        
+        IRuleInputProfileVo postInputEntity;
+        IRuleOutputProfileVo postOutputEntity; {
+        	// 取指定行列的值,字段入参[row索引,col索引]，返回[sheetindex,sheetname,value]
+	        IEntityBuilder entryBuild = RegVds.getBuilder().getEntityProfileBuilder();
+	        IFieldProfileBuilder rowField = entryBuild.newField()
+	        	.setCode(ImportExcelToDBOrEntity2.D_INPUT_PointRow)
+	        	.setName("行号")
+	        	.setDesc("当前sheet的行号,由1开始")
+	        	.setType(VariableType.Integer);
+	        
+	        IFieldProfileBuilder colField = entryBuild.newField()
+	            	.setCode(ImportExcelToDBOrEntity2.D_INPUT_PointCol)
+	            	.setName("列号")
+	            	.setDesc("当前sheet的行号,由1开始")
+	            	.setType(VariableType.Integer);
+	        IFieldProfileBuilder cellField = entryBuild.newField()
+	            	.setCode(ImportExcelToDBOrEntity2.D_OUTPUT_PointValue)
+	            	.setName("值")
+	            	.setDesc("单元格的值")
+	            	.setType(VariableType.Range);
+	        
+	        IFieldProfileBuilder sheetNoField = entryBuild.newField()
+	            	.setCode(ImportExcelToDBOrEntity2.D_OUTPUT_PointSheetNo)
+	            	.setName("sheet索引")
+	            	.setDesc("sheet索引下标0开始,没有指定就返回一个sheet")
+	            	.setType(VariableType.Integer);
+	        IFieldProfileBuilder sheetNameField = entryBuild.newField()
+	            	.setCode(ImportExcelToDBOrEntity2.D_OUTPUT_PointSheetName)
+	            	.setName("sheet名称")
+	            	.setDesc("")
+	            	.setType(VariableType.Char);
+	        
+	        String inputDesc = "需要传入" + ImportExcelToDBOrEntity2.D_INPUT_PointRow 
+	        		+ "(行号)、"  + ImportExcelToDBOrEntity2.D_INPUT_PointCol
+	        		+ "(列号)、" + ImportExcelToDBOrEntity2.D_OUTPUT_PointSheetNo 
+	        		+"(Sheet下标)";
+	        
+	        IRuleBuilder.IRuleInputBuilder inputBuild = ruleBuilder.newInput()
+	        		.setCode(ImportExcelToDBOrEntity2.D_INPUT_PointEntity)
+					.setName("取excel指定行列的值")
+					.setType(VariableType.Entity)
+					.setDesc(inputDesc)
+					.addField(rowField.build())
+					.addField(colField.build())
+					.addField(sheetNoField.build());
+	        postInputEntity = inputBuild.build();
+	        
+	        String outputDesc = "返回" + ImportExcelToDBOrEntity2.D_INPUT_PointRow 
+	        		+ "(行号)、"  + ImportExcelToDBOrEntity2.D_INPUT_PointCol
+	        		+ "(列号)，"  + ImportExcelToDBOrEntity2.D_OUTPUT_PointValue
+	        		+ "(返回对应的值) 、"  + ImportExcelToDBOrEntity2.D_OUTPUT_PointSheetName +  "(Sheet名称)]";
+	        IRuleBuilder.IRuleOutputBuilder outBuild = ruleBuilder.newOutput()
+	        		.setCode(ImportExcelToDBOrEntity2.D_OUTPUT_PointEntity)
+					.setName("取excel指定行列的值")
+					.setType(VariableType.Entity)
+					.setDesc(outputDesc)
+					.addField(rowField.build())
+					.addField(colField.build())
+					.addField(cellField.build()) 
+					.addField(sheetNameField.build());
+	        postOutputEntity = outBuild.build();
+        }
+        
+        
+        IRuleOutputProfileVo sheetName = ruleBuilder.newOutput()
+        		.setCode(ImportExcelToDBOrEntity2.D_OUTPUT_SheetName)
+        		.setName("sheet名称")
+        		.setDesc("导入数据的第一个sheet名")
+        		.setType(VariableType.Char)
+        		.build();
+        
         ruleBuilder.setAuthor(D_Author)
                 .setCode(ImportExcelToDBOrEntity2.D_RULE_CODE)
                 .setDesc("与" + D_RULE_CODE + "的区别多了些扩展功能(合并、返回sheet名称等，并且可以2次开发)")
                 .setName(ImportExcelToDBOrEntity2.D_RULE_NAME)
                 .setEntry(ImportExcelToDBOrEntity2.class)
                 .addInput(margedType) //合并单元格处理方式
+                .addInput(postInputEntity) // 指定行列的数据
                 .setReference(refVo)
+                .addOutput(sheetName)
+                .addOutput(postOutputEntity)
         ;
 
         return ruleBuilder.build();

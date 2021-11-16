@@ -6,16 +6,16 @@ import java.util.List;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.util.CellRangeAddress;
 
-import com.yindangu.v3.business.plugin.execptions.ConfigException;
+import com.yindangu.v3.business.plugin.execptions.ConfigException; 
  
 
 /**读excel时，分析Sheet中的合并行信息*/
-class MergedRegionVo {
-	
-	public static class RegionVo{
+class MergedRegionVo<T> {
+	 
+	public static class RegionVo<T> {
 		private int x,y;
 		private int width,height;
-		private Object mergedValue;
+		private T value;
 		public RegionVo() {
 			
 		}
@@ -45,11 +45,11 @@ class MergedRegionVo {
 		}
 		
 		/**合并单元格的值*/
-		public Object getMergedValue() {
-			return mergedValue;
+		public T getValue() {
+			return value;
 		}
-		public void setMergedValue(Object mergedValue) {
-			this.mergedValue = mergedValue;
+		public void setValue(T mergedValue) {
+			this.value = mergedValue;
 		}
 		@Override
 		public String toString() {
@@ -74,7 +74,7 @@ class MergedRegionVo {
 		*/
 	}
 	private int sheetMergeCount ;
-	private List<RegionVo> regions;
+	private List<RegionVo<T>> regions;
 	private MergedType type;
 	
 	/**
@@ -97,7 +97,7 @@ class MergedRegionVo {
 	protected void readMergedRegion(Sheet sheet) {
 		int count = sheet.getNumMergedRegions();
 		this.sheetMergeCount = count;
-		regions = new ArrayList<RegionVo>(count);
+		regions = new ArrayList<RegionVo<T>>(count);
 		
 		for (int i = 0; i < count; i++) {
 			CellRangeAddress range = sheet.getMergedRegion(i);
@@ -108,7 +108,7 @@ class MergedRegionVo {
 		    int width = lastColumn - firstColumn +1;
 		    int height = lastRow - firstRow +1;
 		    
-		    RegionVo vo = new RegionVo(firstColumn, firstRow, width, height);
+		    RegionVo<T> vo = new RegionVo<T>(firstColumn, firstRow, width, height);
 		    regions.add(vo);
 		}
 		
@@ -119,17 +119,17 @@ class MergedRegionVo {
 	}
 	/**
 	 * 取得坐标范围的值
-	 * @param row 行
-	 * @param col 列
+	 * @param row 行，0开始
+	 * @param col 列，0开始
 	 * @return
 	 */
-	public RegionVo getMergedRegion(int row,int col) {
+	public RegionVo<T> getMergedRegion(int row,int col) {
 		if(regions == null) {
 			throw new ConfigException("未初始化合并的单元格信息，请先调用readMergedRegion()方法");
 		}
-		RegionVo rs = null;
+		RegionVo<T> rs = null;
 		for(int i = 0,size = regions.size();i < size ;i++) {
-			RegionVo v = regions.get(i);
+			RegionVo<T> v = regions.get(i);
 			int x = v.getX(),y = v.getY();
 			if(row >= y && col >= x) {
 				boolean merged = false;
