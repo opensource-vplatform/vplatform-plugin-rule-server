@@ -465,7 +465,7 @@ public class CallWebApi implements IRule {
             } else {
             	String msg = webAPISite + ",请求状态码:" 
                 		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)";  
-                throw new ConfigException(msg, ex);
+                throw new ConfigException(msg, ex.getCause() != null ? ex.getCause() : ex);
             }
 
             if (!isEmpty(invokeTarget)) {
@@ -651,7 +651,7 @@ public class CallWebApi implements IRule {
             } else {
             	String msg = webAPISite + ",请求状态码:" 
                 		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)"; 
-                throw new ConfigException(msg, ex);
+                throw new ConfigException(msg,  ex.getCause() != null ? ex.getCause() : ex);
             }
 
             if (!isEmpty(invokeTarget)) {
