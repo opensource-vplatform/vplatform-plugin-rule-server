@@ -439,8 +439,8 @@ public class CallWebApi implements IRule {
             if (ex == null) {
                 // 请求成功
                 targetValue = true;
-                log.info("请求状态码 200");
-                log.info("请求返回值 " + result.getResult());
+                //log.info("请求状态码 200");
+                //log.info("请求返回值 " + result.getResult());
                 if (serviceProvider.equals("API")) {
                     //第三方api
                     Object responseContent = result.getResult().get("responseContent");
@@ -640,8 +640,8 @@ public class CallWebApi implements IRule {
             if (ex == null) {
                 // 请求成功
                 targetValue = true;
-                log.info("请求状态码 200");
-                log.info("请求返回值 " + result.getResult());
+                //log.info("请求状态码 200");
+                //log.info("请求返回值 " + result.getResult());
                 if (serviceProvider.equals("API")) {
                     Object responseContent = result.getResult().get("responseContent");
                     responseValue = responseContent == null ? "" : responseContent.toString();
