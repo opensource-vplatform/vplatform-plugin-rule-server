@@ -73,7 +73,7 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
 	            Map condParams = sql.getParams();
 	            // 拼查询语句
 	            String countFieldAlias = "countField";
-	            StringBuilder sbSelect = new StringBuilder(" select count(1) as ");
+	            StringBuilder sbSelect = new StringBuilder(" select 1 as ");
 	            sbSelect.append(countFieldAlias);
 	            sbSelect.append(" from ").append(tableName).append(" ");
 	            String conditionsql = null;
@@ -87,7 +87,7 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
 	                conditionsql = conditionsql + condSql;
 	                sbSelect.append(conditionsql);
 	            }
-	
+	            sbSelect.append(" LIMIT 1,1");
 	            // 查数据
 	            //DataView dataview = das.findWithNoFilter(sbSelect.toString(), condParams);
 	            IDataView dataview = das.findWithNoFilter(sbSelect.toString(), condParams);

@@ -2,6 +2,8 @@ package com.yindangu.v3.platform.rule;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,6 +35,7 @@ import com.yindangu.v3.platform.plugin.util.VdsUtils;
 import com.yindangu.v3.platform.rule.SaveDataBaseAction.ExcelContextType;
 import com.yindangu.v3.platform.rule.SaveDataBaseAction.ExcelResultVo;
 import com.yindangu.v3.platform.rule.SaveDataBaseAction.ParamsVo;
+import com.yindangu.v3.platform.rule.SaveDataBaseAction.RepeatType;
 
 class ExcelToDBOrEntity{
 	private static final Logger logger = LoggerFactory.getLogger(ExcelToDBOrEntity.class);
@@ -104,6 +107,17 @@ class ExcelToDBOrEntity{
 	private IVDS getVDS() {
         return VDS.getIntance();
     }
+	private int findIgnoreCase(List<String> rds,String key) {
+		int size = (rds == null ? 0 : rds.size());
+		int rs =-1;
+		for(int i =0 ; i < size;i++){
+			if(key.equalsIgnoreCase(rds.get(i))) {
+				rs = i;
+				break;
+			}
+		}
+		return rs;
+	}
     @SuppressWarnings("unchecked")
 	private SaveDataBaseAction.ParamsVo parseParamsVo(IRuleContext context, Map<String, Object> cfgMap) {
     	 List<Map<String, Object>> mappings = (List<Map<String, Object>>) cfgMap.get("mapping");// 配置映射
@@ -117,18 +131,24 @@ class ExcelToDBOrEntity{
          vo.setTargetType(targetType);
          // 重复处理方式，目前仅是替换
          String repeatOperation = (String) cfgMap.get("repeatOperation");
-         if (VdsUtils.string.isEmpty(repeatOperation)) {
-             repeatOperation = "replace";
-         }
+         vo.setRepeatOperation(VdsUtils.string.isEmpty(repeatOperation) ? RepeatType.Repeat: RepeatType.getType(repeatOperation));
 
          {
 	         Map<String, Object> expressionFieldMap = new HashMap<String, Object>(); // 配置了表达式的值
 	         boolean isImportId = getOtherData(mappings, expressionFieldMap); // 是否存在id导入
-	         List<String> configCheckItems = (List<String>) cfgMap.get("checkItems"); // 获取检查重复的字段
+	         List<String> checkItems = (List<String>) cfgMap.get("checkItems"); // 获取检查重复的字段
 	         // 如果不导入id，就不检查id，其他情况都检查id
-	         List<String> checkItems =(configCheckItems == null ? new ArrayList<String>() : new ArrayList<>(configCheckItems));
-	         if (isImportId && !checkItems.contains("id")) {
-	             checkItems.add("id");
+	         if (checkItems == null) {
+	 			checkItems = Collections.emptyList();
+	 		 }
+	         if (isImportId ) { //配置id导入，必须判断id是否重复(这是兼容处理，先不兼容试试)
+	        	 if(checkItems.isEmpty()) {
+	        		 checkItems = Collections.singletonList("id");
+	        	 }
+	        	 else if(findIgnoreCase(checkItems,"id") == -1) { 
+	        		 //如果导入id字段，就要配置id是否重复的参数（抛异常是为了不做太多默认处理）
+	        		 throw new ConfigException("导入id字段时，需要【重复记录判断字段】增加id字段！");
+	        	 }
 	         }
 	         vo.setCheckItems(checkItems);
 	         vo.setExpressionFieldMap(expressionFieldMap);
@@ -216,7 +236,8 @@ class ExcelToDBOrEntity{
 			context.getVObject().setContextObject(targetType.getType(), tableName, dataView);
 			break;
 		case Table:
-			dataView.acceptChanges();
+			//不用干事情
+			//dataView.acceptChanges();
 			break;
 		default:
 			throw new ConfigException("不支持类型[" + targetType + "]的变量值设置.");

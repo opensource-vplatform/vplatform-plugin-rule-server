@@ -121,9 +121,11 @@ public class POIExcelAction{
 	 */
 	public List<Map<String,Object>> readData(){
 		int sheetIndex = builder.sheetIndex;
+		long startTime = System.currentTimeMillis();
 		try {
 			Workbook workbook = WorkbookFactory.create(builder.inputStream);
 	        int sheetCount = workbook.getNumberOfSheets();
+	        long readTime = System.currentTimeMillis();
 	        
 	        List<Map<String,Object>> records;
 			if(sheetIndex ==-1) { //全部
@@ -142,6 +144,12 @@ public class POIExcelAction{
 			else {
 	        	throw new EnviException("sheet下标越界(sheet总数是:" + sheetCount + ",sheetIndex:" + sheetIndex + ")");
 			} 
+			
+			long endTime = System.currentTimeMillis();
+			String msg ="读取excel.sheet=[" + (sheetIndex== -1 ? sheetCount:sheetIndex) 
+					+ "]耗时:【" + (endTime - startTime) + "】毫秒,记录数:" + records.size()
+					+ ",其中打开Workbook耗时:【" + (readTime- startTime) + "】毫秒"; 
+			log.info(msg);
 			return records;
 		}
 	    catch (PluginException e) {
@@ -524,10 +532,19 @@ public class POIExcelAction{
     		return rts.getString().trim();
         }
 		catch (IllegalStateException e) {
-			 String sheetName = cell.getSheet().getSheetName();
-			 int colIndex = cell.getColumnIndex() + 1;
-             int rowIndex = cell.getRowIndex() + 1;
-			 throw new BusinessException("读取[" + sheetName + "]单元格内容失败,不能将数值计算结果导入到文本字段(行="+rowIndex + " 列="+colIndex + ")",e);
+			String value= "[不能识别]";
+			try {
+				value = cell.getCellFormula();
+			}
+			catch(Exception ex) {
+				log.warn("不能识别getCellFormula()：" + ex.getMessage());
+			}
+			String sheetName = cell.getSheet().getSheetName();
+			int colIndex = cell.getColumnIndex() + 1;
+            int rowIndex = cell.getRowIndex() + 1;
+            String msg="读取[" + sheetName + "]单元格内容失败,不能将数值计算结果导入到文本字段(行="+rowIndex
+            		+ " 列="+colIndex + "),value=[" + value + "]";
+			throw new BusinessException(msg,e);
         }
 	}
 	
