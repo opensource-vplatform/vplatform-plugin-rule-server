@@ -96,6 +96,13 @@
             <scope>system</scope>
             <systemPath>${pom.basedir}/src/main/resources/lib/xmlbeans-2.3.0.jar</systemPath>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.dom4j/dom4j -->
+<dependency>
+    <groupId>org.dom4j</groupId>
+    <artifactId>dom4j</artifactId>
+    <version>2.0.0</version>
+</dependency>
+        
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
