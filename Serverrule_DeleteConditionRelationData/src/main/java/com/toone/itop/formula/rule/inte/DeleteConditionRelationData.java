@@ -93,9 +93,9 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
 	            IDataView dataview = das.findWithNoFilter(sbSelect.toString(), condParams);
 	            List<IDataObject> datas = dataview.select();
 	            
-	            int totalValue =toLong(datas.get(0).get(countFieldAlias)); 
+//	            int totalValue =toLong(datas.get(0).get(countFieldAlias)); 
 	            // 如果有要删的数据，才执行删除
-	            if (totalValue > 0) {
+	            if (datas.size() > 0) {
 	                if (isTree) {// 树形结构删除
 	                    deleteTreeDatas(das, tableName, conditionsql, condParams);
 	                } else { // 普通表删除
