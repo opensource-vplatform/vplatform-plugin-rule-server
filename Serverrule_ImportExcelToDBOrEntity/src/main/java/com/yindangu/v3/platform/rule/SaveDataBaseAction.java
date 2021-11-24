@@ -555,6 +555,12 @@ class SaveDataBaseAction   {
     	StringBuilder repeatMsg = new StringBuilder();
     	if(size >3) {
     		repeatMsg .append("导入的数据有[").append(size).append("]重复记录，请检查");
+    		StringBuilder sb = new StringBuilder();
+    		sb.append(repeatMsg);
+    		for(Map.Entry<String,Integer> m : repeat.entrySet()) {
+    			sb.append(m.getKey()).append(",有").append(m.getValue()).append("个重复记录;");
+    		}
+    		logger.error(sb.toString());
     	}
     	else {
     		repeatMsg .append("导入的数据:[");
