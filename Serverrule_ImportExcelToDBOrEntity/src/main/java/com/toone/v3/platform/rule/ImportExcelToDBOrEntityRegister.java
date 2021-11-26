@@ -57,9 +57,9 @@ public class ImportExcelToDBOrEntityRegister implements IRegisterPlugin {
     @Override
     public List<IPluginProfileVo> getPluginProfile() {
         IPluginProfileVo p1 = getRuleProfile();
-        IPluginProfileVo p2 = getExcel2Profile();
+        //IPluginProfileVo p2 = getExcel2Profile(); //先不要放出去 2021-11-26
         
-        return Arrays.asList(p1,p2);
+        return Arrays.asList(p1);
     }
     /**
      * toone版本
