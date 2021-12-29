@@ -1,2 +1,1 @@
 # vplatform-rule-server
-# test
