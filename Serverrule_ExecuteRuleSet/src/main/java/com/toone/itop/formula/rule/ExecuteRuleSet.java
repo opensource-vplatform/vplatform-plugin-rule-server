@@ -1,8 +1,17 @@
 package com.toone.itop.formula.rule;
 
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+ 
 import com.yindangu.v3.business.VDS;
 import com.yindangu.v3.business.formula.api.IFormulaEngine;
 import com.yindangu.v3.business.plugin.business.api.rule.IRule;
@@ -37,7 +46,7 @@ public class ExecuteRuleSet  implements IRule{
 	protected static final String Param_SourceType = "sourceType";
 	protected static final String Param_WindowCode = "windowCode";
 	 
-
+	private static final Logger log = LoggerFactory.getLogger(ExecuteRuleSet.class);
 	// 是否统计输入输出变量处理消耗时间
 	protected static boolean isCalInOutWasteTime = false;
 
@@ -86,12 +95,14 @@ public class ExecuteRuleSet  implements IRule{
 	}
 	@Override
 	@SuppressWarnings({ "unchecked" })
-	public IRuleOutputVo evaluate(IRuleContext context) {
-
+	public IRuleOutputVo evaluate(IRuleContext context) { 
+		String roleCode ="";
+try {
 		// 当前规则的实例编号，用于设置兄弟规则链输出信息
 		
 		InvokeTargetVo invokeVo = getInvokeTargetVo(context,(Map<String, Object>) context.getPlatformInput(Param_InvokeTarget)); 
-		
+		roleCode = invokeVo.getRuleSetCode();
+		ExecuteRuleSetTimeVo.begin(roleCode);
 		// 活动集调用入参信息
 		List<Map<String, Object>> invokeParams = (List<Map<String, Object>>) context.getPlatformInput(Param_InvokeParams);
 
@@ -99,6 +110,12 @@ public class ExecuteRuleSet  implements IRule{
 		List<Map<String, Object>> returnMappings = (List<Map<String, Object>>) context.getPlatformInput(Param_ReturnMapping);
 
 		return execute(context,invokeVo,invokeParams,returnMappings);
+}
+finally {
+	
+		ExecuteRuleSetTimeVo.end(roleCode);
+	
+}
 		
 	}
 	
@@ -128,15 +145,23 @@ public class ExecuteRuleSet  implements IRule{
 		return isTrigger;
 	}
 	
-
+ 
+	//main com.toone.itop.formula.rule.ExecuteRuleSet isCalInOutWasteTime true
 	public static void main(String[] args) {
 		if (args == null || args.length <= 0) {
 			return;
 		}
 		String cmd = args.length > 0 ? args[0] : null;
 		String param1 = args.length > 1 ? args[1] : null;
-		// String param2 = args.length > 2 ? args[2] : null;
+		//	String param2 = args.length > 2 ? args[2] : null;
 
+		boolean cal = ExecuteRuleSet.isCalInOutWasteTime;
+		if(param1==null && ("true".equalsIgnoreCase(cmd) || "false".equalsIgnoreCase(cmd)) ) {
+			//省略第一个参数
+			param1 = cmd;
+			cmd ="isCalInOutWasteTime";
+		}
+		
 		if ("isCalInOutWasteTime".equals(cmd)) {
 			if (Boolean.TRUE.toString().equalsIgnoreCase(param1)) {
 				ExecuteRuleSet.isCalInOutWasteTime = true;
@@ -144,5 +169,158 @@ public class ExecuteRuleSet  implements IRule{
 				ExecuteRuleSet.isCalInOutWasteTime = false;
 			}
 		}
+		else if("show".equalsIgnoreCase(cmd)) {
+			boolean clear = ("true".equalsIgnoreCase(param1));
+			StringBuilder sb = ExecuteRuleSetTimeVo.showTimes(clear);
+			log.info("函数访问时间统计:" + sb.toString());
+			System.out.println("函数访问时间统计:" + sb.toString());
+		}
+		
+		log.info("命令参数:{isCalInOutWasteTime|show} {true|false} ");
+		System.out.println("isCalInOutWasteTime=" +cal + " to " + ExecuteRuleSet.isCalInOutWasteTime);
+	}
+}
+
+/***方法耗时*/
+class ExecuteRuleSetTimeVo implements Serializable{
+	private static final long serialVersionUID = 7564048036617727215L;
+	private static Map<String, ExecuteRuleSetTimeVo> cache ;
+	private static int dept;
+	private int count;
+	private long wasteTime,minTime,maxTime;
+	private long beginTime,endTime;
+	static{
+		cache = new ConcurrentHashMap<String, ExecuteRuleSetTimeVo>();//JCacheManagerFactory.getCacheManager().getCache("18formula_functime");
+		dept=0;
+	}
+	protected ExecuteRuleSetTimeVo() {
+		count =0;
+		wasteTime = minTime = maxTime =beginTime = endTime = 0;
+	}
+	private static boolean checkStauts() {
+		if(ExecuteRuleSet.isCalInOutWasteTime && cache.size() < 4 * 1024) {
+			return true; //大于5000个元素就没有意义了，并且影响内存（需要手工clear）
+		}
+		else {
+			return false;
+		}
+	}
+	public static void begin(String funcName) {
+		if(!checkStauts()) {
+			return ;
+		}
+		dept ++;
+		String key =  getKey(dept, funcName);
+		Map<String, ExecuteRuleSetTimeVo> c = cache;
+		ExecuteRuleSetTimeVo vo = c.get(key);
+		if(vo == null) {
+			vo = new ExecuteRuleSetTimeVo();
+			c.put(key, vo);
+		}
+		vo.beginTime = System.currentTimeMillis();
+		
+	}
+	public static void end(String funcName) {
+		if(!checkStauts()) {
+			return ;
+		}
+		String key = getKey(dept, funcName);
+		dept --;
+		
+		Map<String, ExecuteRuleSetTimeVo> c = cache;
+		ExecuteRuleSetTimeVo vo = c.get(key);
+		if(vo == null) {
+			vo = new ExecuteRuleSetTimeVo();
+			c.put(key, vo);
+		}
+		vo.endTime = System.currentTimeMillis();
+		vo.addCount(vo.endTime -vo.beginTime);
+	}
+	private static String getKey(int deptx,String funcName) {
+		String ds = String.valueOf(deptx);
+		StringBuilder sb = new StringBuilder(ds.length() + funcName.length() + 10);
+		switch (ds.length()) {
+		case 1:
+			sb.append("00").append(ds);
+			break;
+		case 2:
+			sb.append("0").append(ds);
+			break;
+		default:
+			sb.append(ds);
+			break;
+		}
+		sb.append('#').append(funcName);
+		return sb.toString();
+	}
+	
+	public static StringBuilder showTimes(boolean clear) {
+		StringBuilder sb = new StringBuilder();
+		if(cache == null) {
+			return sb;
+		}
+		
+		sb.append("\r\n count \t\t time \t\t avg(ms) \t\t max \t\t min \t\t funcName \r\n");
+		List<String> keys = new ArrayList<String>(cache.keySet());
+		Collections.sort(keys);
+		
+		for(String key  :keys) {
+			ExecuteRuleSetTimeVo v = cache.get(key);
+			sb.append(v.count).append("\t\t")
+			 	.append(v.wasteTime).append("\t\t")
+			 	.append(v.getAvgs()).append("\t\t")
+			 	.append(v.maxTime).append("\t\t")
+			 	.append(v.minTime).append("\t\t")
+			 	.append(key).append("\r\n");
+		}
+		if(clear) {
+			cache.clear();
+			dept=0;
+		}
+		return sb;
+	} 
+	public void addCount(long times) {
+		if(times>1000572023174l) {
+			times =0;
+		}
+		wasteTime = wasteTime+ times;
+		count ++;
+		if(minTime==0 || (times>0 && times < minTime)){
+			minTime =times;
+		}
+		if(times > maxTime) {
+			maxTime =times;
+		}
+	}
+	public int getCount() {
+		return count;
+	}
+	public long getWasteTime() {
+		return wasteTime;
+	}
+	public long getMinTime() {
+		return minTime;
+	}
+	public long getMaxTime() {
+		return maxTime;
+	}
+	private String getAvgs() {
+		if(count ==0) {
+			//sb.append("0.00");
+			return "0.00";
+		}
+		StringBuilder sb = new StringBuilder(10);
+		String avgs = String.valueOf(wasteTime * 100 / count);
+		int len = avgs.length();
+		if(len  == 1) {
+			sb.append("0.0").append(avgs);
+		}
+		else if(len ==2 ) {
+			sb.append("0.").append(avgs);
+		}
+		else {
+			sb.append(avgs.substring(0, len-2)).append('.').append(avgs.substring(len-2));
+		}
+		return sb.toString();
 	}
 }
