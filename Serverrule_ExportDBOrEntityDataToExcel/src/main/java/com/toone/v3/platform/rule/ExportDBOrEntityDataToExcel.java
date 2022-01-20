@@ -25,6 +25,7 @@ import com.yindangu.v3.business.ruleset.api.context.IRuleSetRuntimeContext;
 import com.yindangu.v3.business.vds.IVDS;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLConditions;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLOrderBy;
+import com.yindangu.v3.business.vsql.apiserver.IVSQLQuery;
 import com.yindangu.v3.business.vsql.apiserver.VSQLConditionLogic;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
 import org.slf4j.LoggerFactory;
@@ -443,14 +444,16 @@ public class ExportDBOrEntityDataToExcel implements IRule {
             extraSqlConditions.setLogic(VSQLConditionLogic.AND);
         }
 
-        if (null == orderBy || orderBy.equals("")) {
+        if (null == orderBy || orderBy.length()==0) {
             dataView = getVDS().getVSQLQuery().loadQueryData(queryName, queryParams, extraSqlConditions, true);
 //            dataView = IVSQLQueryFactory.getService().loadQueryData(queryName, queryParams, extraSqlConditions, true);
         } else {
-            IVSQLOrderBy ivsql = getVDS().getVSQLQuery().initVSQLOrderBy();
+        	IVSQLQuery q = getVDS().getVSQLQuery();
+            IVSQLOrderBy ivsql = q.newSQLOrderBy();//initVSQLOrderBy();
 //            IVSQLOrderBy ivsql = IVSQLOrderByFactory.getService().getVSQLOrderBy();
             ivsql.setSqlConStr("order by " + orderBy);
-            dataView = getVDS().getVSQLQuery().loadQueryData(queryName, queryParams, extraSqlConditions, ivsql, true);
+            //dataView = getVDS().getVSQLQuery().loadQueryData(queryName, queryParams, extraSqlConditions, ivsql, true);
+            dataView = q.loadQueryData(queryName, queryParams, extraSqlConditions, ivsql,0,0, true);
         }
 
         return dataView;
