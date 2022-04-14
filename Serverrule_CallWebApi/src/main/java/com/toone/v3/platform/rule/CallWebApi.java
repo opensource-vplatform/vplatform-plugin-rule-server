@@ -1,27 +1,40 @@
 package com.toone.v3.platform.rule;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.toone.v3.platform.rule.model.RequestModel;
 import com.yindangu.v3.business.VDS;
 import com.yindangu.v3.business.http.exception.HttpException;
 import com.yindangu.v3.business.http.model.HttpRequest;
+import com.yindangu.v3.business.http.model.HttpRequest.HttpMethod;
 import com.yindangu.v3.business.http.model.HttpRequestResult;
 import com.yindangu.v3.business.metadata.api.IDataObject;
 import com.yindangu.v3.business.metadata.api.IDataView;
-import com.yindangu.v3.business.plugin.business.api.rule.*;
+import com.yindangu.v3.business.plugin.business.api.rule.ContextVariableType;
+import com.yindangu.v3.business.plugin.business.api.rule.IRule;
+import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
+import com.yindangu.v3.business.plugin.business.api.rule.IRuleOutputVo;
+import com.yindangu.v3.business.plugin.business.api.rule.IRuleVObject;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.PluginException;
 import com.yindangu.v3.business.vds.IVDS;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
-import java.util.*;
 
 /**
  * 后台规则：调用WebAPI
  *
- * @Author xugang
+ * @Author 
  * @Date 2021/7/12 15:29
  */
 public class CallWebApi implements IRule {
@@ -91,6 +104,9 @@ public class CallWebApi implements IRule {
         // *传参方式[1(Key/Value)/2(字符串入参)],当服务提供方为"V规范V平台WebAPI"时或"第三方API"且请求方式为"GET"时此处为空
         String transParamType = (String) context.getPlatformInput("transParamType");
         String isAsyn = (String) context.getPlatformInput("isParallelism");
+        String statusCode = (String) context.getPlatformInput("statusCode");
+        String msg = (String) context.getPlatformInput("msg");
+        boolean isBreak = !isEmpty(statusCode) || !isEmpty(msg);
         //请求超时
         int timeout = Integer.parseInt(isEmpty((String) context.getPlatformInput("timeOut")) ? "3" : (String) context.getPlatformInput("timeOut"));
         boolean isGet = !isEmpty(requestType) && requestType.toUpperCase().equals("GET");
@@ -99,6 +115,7 @@ public class CallWebApi implements IRule {
             isGet = false;
         }
 
+        IRuleOutputVo outputVo = context.newOutputVo();
         String webAPISite = getVDS().getFormulaEngine().eval(webAPISiteExp);
         //是否异步
         if (!isEmpty(isAsyn) && isAsyn.equals("True")) {
@@ -132,23 +149,35 @@ public class CallWebApi implements IRule {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Map<Object, Object> returnData = requestHttpAsyn(webAPISitef, contextf, inputParamsf, serialInputParamsString, isGetf, paramTextf, headerParamsf, invokeTargetTypef, invokeTargetf, respondTargetTypef, respondTargetf, serviceProviderf, transParamTypef, timeoutf);
-                    if (returnMappingsf != null && returnData != null && serviceProviderf.equals("WebAPI")) {
-                        setReturnValue(returnMappingsf, contextf, returnData);
+                    RequestModel model = requestHttpAsyn(isBreak, webAPISitef, contextf, inputParamsf, serialInputParamsString, isGetf, paramTextf, headerParamsf, invokeTargetTypef, invokeTargetf, respondTargetTypef, respondTargetf, serviceProviderf, transParamTypef, timeoutf, requestType);
+                    if(model != null && !isBreak && !model.isSuccess()) {
+                    	throw new ConfigException(model.getMsg());
                     }
+                    //把返回数据赋值到变量
+                    if (returnMappingsf != null && model.getData() != null && serviceProviderf.equals("WebAPI")) {
+                        setReturnValue(returnMappingsf, contextf, model.getData());
+                    }
+//                    
+//                    if (returnMappingsf != null && returnData != null && serviceProviderf.equals("WebAPI")) {
+//                        setReturnValue(returnMappingsf, contextf, returnData);
+//                    }
                 }
             }, "CallWebApi_Async_Execute_Thread_" + VdsUtils.uuid.generate()).start();
         } else {
             //请求webapi 地址，返回数据
-            Map<Object, Object> returnData = requestHttp(webAPISite, context, inputParams, isGet, paramText, headerParams, invokeTargetType, invokeTarget, respondTargetType, respondTarget, serviceProvider, transParamType, timeout);
-            //把返回数据赋值到变量
-            if (returnMappings != null && returnData != null && serviceProvider.equals("WebAPI")) {
-                setReturnValue(returnMappings, context, returnData);
+            RequestModel model = requestHttp(isBreak, webAPISite, context, inputParams, isGet, paramText, headerParams, invokeTargetType, invokeTarget, respondTargetType, respondTarget, serviceProvider, transParamType, timeout, requestType);
+            if(model != null && !isBreak && !model.isSuccess()) {
+            	throw new ConfigException(model.getMsg());
             }
+            //把返回数据赋值到变量
+            if (returnMappings != null && model.getData() != null && serviceProvider.equals("WebAPI")) {
+                setReturnValue(returnMappings, context, model.getData());
+            }
+//            outputVo.put("isSuccess", model.isSuccess());
+//            outputVo.put("statusCode", model.getStatusCode());
+//            outputVo.put("msg", model.getMsg()); 
         }
 
-        IRuleOutputVo outputVo = context.newOutputVo();
-        outputVo.put(null);
         return outputVo;
     }
 
@@ -322,10 +351,23 @@ public class CallWebApi implements IRule {
         }
     }
 
-    public Map<Object, Object> requestHttp(String webAPISite, IRuleContext context, List<Map<String, Object>> inputParams,
+    private void setReturnData(IRuleContext context, String statusCode, String msg) {
+    	String statusCodeCode = (String) context.getPlatformInput("statusCode");
+    	String msgCode = (String) context.getPlatformInput("msg");
+    	String statusCodeType = (String) context.getPlatformInput("statusCodeType");
+    	String msgType = (String) context.getPlatformInput("msgType");
+    	if(!isEmpty(statusCodeCode) && !isEmpty(msgCode)) {
+    		context.getVObject().setContextObject(ContextVariableType.getInstanceType(statusCodeType), statusCodeCode, statusCode);
+    		context.getVObject().setContextObject(ContextVariableType.getInstanceType(msgType), msgCode, msg);    		
+    	}
+    }
+    
+    public RequestModel requestHttp(boolean isBreak, String webAPISite, IRuleContext context, List<Map<String, Object>> inputParams,
                                            boolean isGet, String paramText, List<Map<String, Object>> headerParams, String invokeTargetType,
-                                           String invokeTarget, String respondTargetType, String respondTarget, String serviceProvider, String transParamType, int timeout) {
-        if (isEmpty(webAPISite)) {
+                                           String invokeTarget, String respondTargetType, String respondTarget, String serviceProvider, String transParamType, int timeout, String requestType) {
+
+    	if (isEmpty(webAPISite)) {
+    		setReturnData(context, "-1", "webapi地址不能为空");
             return null;
         }
         // 创建参数队列
@@ -428,6 +470,17 @@ public class CallWebApi implements IRule {
         boolean targetValue = false;
         HttpRequestResult result;
         if (serviceProvider.equals("API")) {
+        	if("POST".equalsIgnoreCase(requestType)) {
+        		httpRequest.setMethod(HttpMethod.POST);
+        	} else if("GET".equalsIgnoreCase(requestType)) {
+        		httpRequest.setMethod(HttpMethod.GET);
+        	} else if("PUT".equalsIgnoreCase(requestType)) {
+        		httpRequest.setMethod(HttpMethod.PUT);
+        	} else if("DELETE".equalsIgnoreCase(requestType)) {
+        		httpRequest.setMethod(HttpMethod.DELETE);
+        	} else {
+        		throw new RuntimeException("暂不支持此请求方式：" + requestType);
+        	}
             result = getVDS().getWebApiInvoker().callThirdHttpRequest(httpRequest);
         } else {
             result = getVDS().getWebApiInvoker().callWebApi(httpRequest);
@@ -445,6 +498,7 @@ public class CallWebApi implements IRule {
                     //第三方api
                     Object responseContent = result.getResult().get("responseContent");
                     responseValue = responseContent == null ? "" : responseContent.toString();
+                    setReturnData(context, "200", "成功");
                 } else {
                     //平台的webapi
                     //2020-11-07 taoyz 增加对result.getResult()里面的内容解释，因为调用平台的webapi出错时，返回也是200，data里面有causedby的话就是出错的webapi，出错时就抛出异常
@@ -457,15 +511,30 @@ public class CallWebApi implements IRule {
                             if (errorMsg == null || "".equals(errorMsg)) {
                                 errorMsg = (String) resultMap.get("detail");
                             }
-                            throw new Exception(errorMsg);
+                            setReturnData(context, errorCode, errorMsg);
+                            return new RequestModel(false, 200, errorMsg);
+//                            throw new Exception(errorMsg);
                         }
                     }
-                    return resultMap;
+                    RequestModel model = new RequestModel(true, 200, "成功");
+                    model.setData(resultMap);
+                    setReturnData(context, "200", "成功");
+                    return model;
                 }
             } else {
-            	String msg = webAPISite + ",请求状态码:" 
-                		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)";  
-                throw new ConfigException(msg, ex.getCause() != null ? ex.getCause() : ex);
+//            	String msg = webAPISite + ",请求状态码:" 
+//                		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)";
+            	int code = ex.getRespCode();
+            	context.getVObject().setContextObject(ContextVariableType.getInstanceType("ruleSetOutput"), "statusCode", code+"");
+            	if(ex.getCause() == null) {
+            		setReturnData(context, code+"", "请求地址失败：" + webAPISite + ", " + "原因：" + (code == -1 ? "请求失败" : (code == -2 ? "请求超时" : (code == -3 ? "读body发生超时" : "请求远程服务异常"))));
+            		return new RequestModel(false, code, "请求地址失败：" + webAPISite + ", " + "原因：" + (code == -1 ? "请求失败" : (code == -2 ? "请求超时" : (code == -3 ? "读body发生超时" : "请求远程服务异常"))));
+            	} else {            		
+            		log.error("请求webapi失败：" + webAPISite, ex);
+            		setReturnData(context, code + "", "请求地址失败：" + webAPISite + ", 原因：" + ex.getMessage());
+            		return new RequestModel(false, code, "请求地址失败：" + webAPISite + ", 原因：" + ex.getMessage());
+            	}
+//                throw new ConfigException(msg, ex.getCause() != null ? ex.getCause() : ex);
             }
 
             if (!isEmpty(invokeTarget)) {
@@ -541,9 +610,9 @@ public class CallWebApi implements IRule {
 
     }
 
-    public Map<Object, Object> requestHttpAsyn(String webAPISite, IRuleContext context, List<Map<String, Object>> inputParams,
+    public RequestModel requestHttpAsyn(boolean isBreak, String webAPISite, IRuleContext context, List<Map<String, Object>> inputParams,
                                                String serialInputParamsString, boolean isGet, String paramText, List<Map<String, Object>> headerParams, String invokeTargetType,
-                                               String invokeTarget, String respondTargetType, String respondTarget, String serviceProvider, String transParamType, int timeout) {
+                                               String invokeTarget, String respondTargetType, String respondTarget, String serviceProvider, String transParamType, int timeout, String requestType) {
 
         if (isEmpty(webAPISite)) {
             return null;
@@ -629,6 +698,15 @@ public class CallWebApi implements IRule {
         boolean targetValue = false;
         HttpRequestResult result;
         if (serviceProvider.equals("API")) {
+        	if("POST".equalsIgnoreCase(requestType)) {
+        		httpRequest.setMethod(HttpMethod.POST);
+        	} else if("GET".equalsIgnoreCase(requestType)) {
+        		httpRequest.setMethod(HttpMethod.GET);
+        	} else if("PUT".equalsIgnoreCase(requestType)) {
+        		httpRequest.setMethod(HttpMethod.PUT);
+        	} else {
+        		throw new RuntimeException("暂不支持此请求方式：" + requestType);
+        	}
             result = getVDS().getWebApiInvoker().callThirdHttpRequest(httpRequest);
         } else {
             result = getVDS().getWebApiInvoker().callWebApi(httpRequest);
@@ -646,12 +724,20 @@ public class CallWebApi implements IRule {
                     Object responseContent = result.getResult().get("responseContent");
                     responseValue = responseContent == null ? "" : responseContent.toString();
                 } else {
-                    return result.getResult();
+                	return new RequestModel(true, 200, "");
+//                    return result.getResult();
                 }
             } else {
-            	String msg = webAPISite + ",请求状态码:" 
-                		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)"; 
-                throw new ConfigException(msg,  ex.getCause() != null ? ex.getCause() : ex);
+//            	String msg = webAPISite + ",请求状态码:" 
+//                		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)"; 
+//                throw new ConfigException(msg,  ex.getCause() != null ? ex.getCause() : ex);
+                int code = ex.getRespCode();
+            	if(ex.getCause() == null) {
+            		new RequestModel(false, code, "请求地址失败：" + webAPISite + ", " + "原因：" + (code == -1 ? "请求失败" : (code == -2 ? "请求超时" : (code == -3 ? "读body发生超时" : "请求远程服务异常"))));
+            	} else {            		
+            		log.error("请求webapi失败：" + webAPISite, ex);
+            		return new RequestModel(false, code, "请求地址失败：" + webAPISite + ", 原因：" + ex.getMessage());
+            	}
             }
 
             if (!isEmpty(invokeTarget)) {
