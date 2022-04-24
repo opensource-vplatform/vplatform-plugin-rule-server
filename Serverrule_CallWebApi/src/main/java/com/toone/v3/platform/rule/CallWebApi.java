@@ -177,7 +177,8 @@ public class CallWebApi implements IRule {
 //            outputVo.put("statusCode", model.getStatusCode());
 //            outputVo.put("msg", model.getMsg()); 
         }
-
+        
+        outputVo.put(null);
         return outputVo;
     }
 
@@ -522,10 +523,17 @@ public class CallWebApi implements IRule {
                     return model;
                 }
             } else {
+            	String statusCodeCode = (String) context.getPlatformInput("statusCode");
+            	String msgCode = (String) context.getPlatformInput("msg");
+            	if(isEmpty(statusCodeCode) && isEmpty(msgCode)) {
+            		String msg = webAPISite + ",请求状态码:" 
+                    		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)";  
+                    throw new ConfigException(msg, ex.getCause() != null ? ex.getCause() : ex);
+            	}
 //            	String msg = webAPISite + ",请求状态码:" 
 //                		+ ex.getRespCode() + "(返回值:-1请求失败,-2请求超时,-3读body发生超时,其他是http编码)";
             	int code = ex.getRespCode();
-            	context.getVObject().setContextObject(ContextVariableType.getInstanceType("ruleSetOutput"), "statusCode", code+"");
+//            	context.getVObject().setContextObject(ContextVariableType.getInstanceType("ruleSetOutput"), "statusCode", code+"");
             	if(ex.getCause() == null) {
             		setReturnData(context, code+"", "请求地址失败：" + webAPISite + ", " + "原因：" + (code == -1 ? "请求失败" : (code == -2 ? "请求超时" : (code == -3 ? "读body发生超时" : "请求远程服务异常"))));
             		return new RequestModel(false, code, "请求地址失败：" + webAPISite + ", " + "原因：" + (code == -1 ? "请求失败" : (code == -2 ? "请求超时" : (code == -3 ? "读body发生超时" : "请求远程服务异常"))));
