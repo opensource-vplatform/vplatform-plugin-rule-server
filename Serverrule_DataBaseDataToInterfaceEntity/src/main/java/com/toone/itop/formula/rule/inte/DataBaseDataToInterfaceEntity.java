@@ -437,13 +437,15 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			}
 			//清空目标DataView
 			clearDataView(destDataView);
-		
 			if (null != dataView && !VdsUtils.collection.isEmpty(queryCondition)) { 
-				insertDataObject(dataView,queryCondition,destDataView);
-			}
-			long start5=System.currentTimeMillis();
-			if(start5-start4>10){
-				loggerInfo(vtable.getName() + "加载数据库记录查询耗时4：【"+(start5-start4)+"】毫秒");
+				long startInsert=System.currentTimeMillis();
+				int recordSize = insertDataObject(dataView,queryCondition,destDataView); 
+				
+				if(recordSize > 2 *1024) {
+					long endInsert = System.currentTimeMillis();
+					log.warn("复制内存记录过多({})请优化，行数:{},耗时:{}毫秒",
+							vtable.getName(), recordSize, endInsert - startInsert);
+				}
 			}
 		}
 		long endTime5=System.currentTimeMillis();
@@ -475,7 +477,7 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 		}
 		
 	}
-	private void insertDataObject(IDataView sourceDataView,List<Map> queryCondition,IDataView destDataView) {
+	private int insertDataObject(IDataView sourceDataView,List<Map> queryCondition,IDataView destDataView) {
 		List<IFieldMap> fields = new ArrayList<IFieldMap>();
 		for (Map map : queryCondition) {
 			String destName =  (String) map.get("destName");
@@ -509,8 +511,9 @@ public class DataBaseDataToInterfaceEntity  extends AbstractRule4Tree implements
 			fields.add(e);
 		}
 		IVSQLUtil util = VDS.getIntance().getVSQLUtil();
-		util.copyDataView(sourceDataView, fields, destDataView);
+		return util.copyDataView(sourceDataView, fields, destDataView);
 	}
+ 
 	/**
 	 * 转实体的树结构为表的树结构
 	 * @param mappings
