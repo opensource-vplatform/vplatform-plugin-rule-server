@@ -97,7 +97,9 @@ public class DeleteConditionRelationData implements IRule  { // extends Abstract
 	            // 如果有要删的数据，才执行删除
 	            if (datas.size() > 0) {
 	                if (isTree) {// 树形结构删除
-	                    deleteTreeDatas(das, tableName, conditionsql, condParams);
+	                	if(!condParams.containsValue(null)) {
+	                        deleteTreeDatas(das, tableName, conditionsql, condParams);
+	                	}
 	                } else { // 普通表删除
 	                    deleteDatas(das,tableName, conditionsql, condParams);
 	                }
