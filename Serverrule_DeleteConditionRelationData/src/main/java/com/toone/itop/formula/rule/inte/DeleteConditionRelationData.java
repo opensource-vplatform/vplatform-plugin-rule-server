@@ -20,7 +20,7 @@ import com.yindangu.v3.platform.plugin.util.VdsUtils;
 
 /**
  * 删除数据库中的记录
- * @author jiqj
+ * @author jiqj 20220606
  *
  */
 public class DeleteConditionRelationData implements IRule  { // extends AbstractRule4Tree {
