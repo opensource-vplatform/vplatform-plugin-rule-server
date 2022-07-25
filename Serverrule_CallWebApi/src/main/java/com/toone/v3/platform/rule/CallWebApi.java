@@ -44,7 +44,8 @@ public class CallWebApi implements IRule {
     private static final String tenantKey = "tenantKeyTooneV3";
     private static final Logger log = LoggerFactory.getLogger(CallWebApi.class);
 
-    @Override
+    @SuppressWarnings("unchecked")
+	@Override
     public IRuleOutputVo evaluate(IRuleContext context) {
 //        Map<String, Object> ruleCfgParams = (Map<String, Object>) context.getRuleConfig().getConfigParams();
         String webAPISiteExp = context.getPlatformInput("webAPISite").toString();
@@ -351,15 +352,35 @@ public class CallWebApi implements IRule {
             }
         }
     }
-
-    private void setReturnData(IRuleContext context, String statusCode, String msg) {
-    	String statusCodeCode = (String) context.getPlatformInput("statusCode");
+    /***/
+    @SuppressWarnings("deprecation")
+	private void setReturnData(IRuleContext context, String statusCode, String msg) {
     	String msgCode = (String) context.getPlatformInput("msg");
-    	String statusCodeType = (String) context.getPlatformInput("statusCodeType");
     	String msgType = (String) context.getPlatformInput("msgType");
-    	if(!isEmpty(statusCodeCode) && !isEmpty(msgCode)) {
-    		context.getVObject().setContextObject(ContextVariableType.getInstanceType(statusCodeType), statusCodeCode, statusCode);
-    		context.getVObject().setContextObject(ContextVariableType.getInstanceType(msgType), msgCode, msg);    		
+    	String statusCodeType = (String) context.getPlatformInput("statusCodeType");
+    	String statusCodeCode = (String) context.getPlatformInput("statusCode");
+    	
+    	IRuleVObject vobj = context.getVObject();
+    	if(isEmptyAny(msgType,msgCode)) {
+    		;//空，不配置
+    	}
+    	else {
+    		ContextVariableType vt =ContextVariableType.getInstanceType(msgType);
+    		if(vt == null) {
+    			throw new ConfigException("不能识别的变量作用域范围类型，msgType=" + msgType);
+    		}
+    		vobj.setContextObject(vt, msgCode, msg);  
+    	}
+    	
+    	if(isEmptyAny(statusCodeType,statusCodeCode)) {
+    		;//
+    	}
+    	else {
+    		ContextVariableType vt =ContextVariableType.getInstanceType(statusCodeType);
+    		if(vt == null) {
+    			throw new ConfigException("不能识别的变量作用域范围类型，statusCodeType=" + statusCodeType);
+    		}
+    		vobj.setContextObject(vt, statusCodeCode, statusCode); 
     	}
     }
     
@@ -897,13 +918,37 @@ public class CallWebApi implements IRule {
     }
 
     private boolean isEmpty(String str) {
-        if (str == null || str.equals("")) {
-            return true;
-        }
-
-        return false;
+        return (str == null || str.length()==0) ;
     }
-
+    /**
+     * 全部为空返回true
+     * @param str
+     * @return
+     */
+    private boolean isEmptyAll(String... str) {
+        int rs = 0,size = str.length;
+        for(int i =0;i < size;i++) {
+        	if(isEmpty(str[0])) {
+        		rs ++;
+        	}
+        }
+        return rs==size;
+    }
+    /**
+     * 有一个为空返回true
+     * @param str
+     * @return
+     */
+    private boolean isEmptyAny(String... str) {
+    	 int rs = 0,size = str.length;
+         for(int i =0;i < size;i++) {
+         	if(isEmpty(str[0])) {
+         		rs ++;
+         		break;
+         	}
+         }
+         return rs>0;
+    }
     private IVDS getVDS() {
         IVDS intance = VDS.getIntance();
         return intance;
