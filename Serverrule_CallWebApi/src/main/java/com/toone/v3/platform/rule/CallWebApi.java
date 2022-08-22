@@ -359,6 +359,8 @@ public class CallWebApi implements IRule {
     	String msgType = (String) context.getPlatformInput("msgType");
     	String statusCodeType = (String) context.getPlatformInput("statusCodeType");
     	String statusCodeCode = (String) context.getPlatformInput("statusCode");
+    	String invokeTargetType = (String) context.getPlatformInput("invokeTargetType");
+        String invokeTarget = (String) context.getPlatformInput("invokeTarget");
     	
     	IRuleVObject vobj = context.getVObject();
     	if(isEmptyAny(msgType,msgCode)) {
@@ -381,6 +383,19 @@ public class CallWebApi implements IRule {
     			throw new ConfigException("不能识别的变量作用域范围类型，statusCodeType=" + statusCodeType);
     		}
     		vobj.setContextObject(vt, statusCodeCode, statusCode); 
+    	}
+    	
+    	if("-1".equals(statusCode) || "-2".equals(statusCode) || "-3".equals(statusCode)) {
+    		if(isEmptyAny(statusCodeType,statusCodeCode)) {
+        		;//
+        	}
+        	else {
+        	    ContextVariableType vt =ContextVariableType.getInstanceType(invokeTargetType);
+        	    if(vt == null) {
+        		    throw new ConfigException("不能识别的变量作用域范围类型，invokeTargetType=" + invokeTargetType);
+        	    }
+        	    vobj.setContextObject(vt, invokeTarget, false);
+        	}
     	}
     }
     
