@@ -742,7 +742,7 @@ class SaveDataBaseAction   {
     	List<String> checkItems = vo.getCheckItems(); 
     	String repeatSql  = null;//是否需要检查重复(null表示不需要检查) 
     	if(checkItems.size()> 0) {//全部取出，不需要多次查数据库
-        	boolean existRecord =tableExistRecord(vo.getTableName());// 
+        	boolean existRecord = false;//tableExistRecord(vo.getTableName());// 
         	if(existRecord) {
         		String where = buildRepeatSql(checkItems); 
         		repeatSql = "SELECT * FROM " + vo.getTableName() + " WHERE " + where + " LIMIT 1,1";
