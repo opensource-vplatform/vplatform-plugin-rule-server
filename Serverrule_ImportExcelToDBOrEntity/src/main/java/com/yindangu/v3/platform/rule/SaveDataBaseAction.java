@@ -890,111 +890,152 @@ class SaveDataBaseAction   {
      * @return
      */
     private boolean isNumber(String str) {
-        char[] ch = str.toCharArray();
-        for (int i = 0; i < ch.length; i++) {
-            if (ch[i] < '0' || ch[i] > '9') {
+        for (int i = 0,size = str.length(); i < size; i++) {
+        	char ch = str.charAt(i);
+            if (ch < '0' || ch > '9') {
                 return false;
             }
         }
         return true;
     }
-
-    private List<Map<String, Object>> getSortData(Object sep, Boolean isBizCode, List<Map<String, Object>> tmpMapData, String fieldCode) {
+    /**
+     * 
+     * @param sep
+     * @param isBizCode
+     * @param tmpMapData
+     * @param fieldCode 层级码或父子关系字段 
+     * @return
+     */
+    private List<Map<String, Object>> getSortData(final String SEPARTOR, Boolean isBizCode, List<Map<String, Object>> tmpMapData,final String fieldCode) {
         final String nullTip = isBizCode ? "业务编码字段存在空值,请检查" : "层级码字段存在空值,请检查";
-        Map<String, Object> tmp = tmpMapData.get(0);
-        String tmpCode = (String) tmp.get(fieldCode);
-        //Boolean num = true;
-        if (tmpCode == null || tmpCode.length() ==0) {
-            throw new BusinessException(nullTip);
-        } else {
-            //String pattern = "^\\d+(\\" + sep + "\\d+)?";
-            //num = Pattern.matches(pattern, tmpCode);
+        if(tmpMapData == null || tmpMapData.isEmpty()){
+        	throw new BusinessException("数据为空");
         }
-        // 层级码或父子关系字段
-        final String fCode = fieldCode;
-        // 分隔符
-        final String SEPARTOR = sep + "";
+        else {
+	        Map<String, Object> tmp = tmpMapData.get(0);
+	        String tmpCode = (String) tmp.get(fieldCode); 
+	        if (tmpCode == null || tmpCode.length() ==0) {
+	            throw new BusinessException(nullTip);
+	        }
+	    }
+        // 分隔符 
+        final int separtorType ; //1:是数字isNumeric，2: 是".",3:其他
+        if(isNumeric(SEPARTOR)) {
+        	separtorType = 1;//是数字isNumeric
+        }
+        else if(SEPARTOR!=null && SEPARTOR.length()==1 && SEPARTOR.charAt(0)=='.') {
+        	separtorType = 2; //是"."
+        }
+        else {
+        	separtorType=3;//
+        }
+        
         // 是否是数字code
         //final boolean numCode = num;
 
         Comparator<Map<String, Object>> compareSepartor = new Comparator<Map<String, Object>>() {
             @Override
             public int compare(Map<String, Object> o1, Map<String, Object> o2) {
-                int result = 0;
-                String code1 = (String) o1.get(fCode);
-                String code2 = (String) o2.get(fCode);
-
-                if (code1 == null || code2 == null)
+            	String code1 = (String) o1.get(fieldCode);
+                String code2 = (String) o2.get(fieldCode);
+                if (code1 == null || code2 == null) {
                     throw new BusinessException(nullTip);
-
-                String tmpSpartor = null;
-                if (isNumeric(SEPARTOR)) {
-                    tmpSpartor = ",";
-                    code1 = displayWithComma(code1);
-                    code2 = displayWithComma(code2);
-                } else {
-                    tmpSpartor = SEPARTOR.equals(".") ? "\\." : SEPARTOR;
                 }
-
-                String[] arrayCode1 = code1.split(tmpSpartor);
-                String[] arrayCode2 = code2.split(tmpSpartor);
-                int loopLen = arrayCode1.length > arrayCode2.length ? arrayCode2.length : arrayCode1.length;
-
-                for (int i = 0; i < loopLen; i++) {
-                    String strCode1 = arrayCode1[i];
-                    String strCode2 = arrayCode2[i];
-                    if (isNumber(strCode1)) {
-                        int intCode1 = Integer.parseInt(strCode1);
-                        int intCode2 = Integer.parseInt(strCode2);
-                        if (intCode1 > intCode2) {
-                            result = 1;
-                            break;
-                        } else if (intCode1 < intCode2) {
-                            result = -1;
-                            break;
-                        } else if (i == (loopLen - 1)) {
-                            if (arrayCode1.length > arrayCode2.length) {
-                                result = 1;
-                                break;
-                            } else {
-                                result = -1;
-                                break;
-                            }
-                        }
-                    } else {
-                        if (strCode1.length() > strCode2.length()) {
-                            result = 1;
-                            break;
-                        } else if (strCode1.length() < strCode2.length()) {
-                            result = -1;
-                            break;
-                        } else {
-                            if (strCode1.compareTo(strCode2) == 0) {
-                                if (i == (loopLen - 1)) {
-                                    if (arrayCode1.length < arrayCode2.length) {
-                                        result = -1;
-                                        break;
-                                    } else {
-                                        result = 1;
-                                        break;
-                                    }
-                                }
-                            } else {
-                                result = strCode1.compareTo(strCode2);
-                                break;
-                            }
-                        }
+                try {
+                	String spartor ;
+                    if (separtorType ==1) {
+                    	spartor = ",";
+                        code1 = displayWithComma(code1);
+                        code2 = displayWithComma(code2);
+                    } 
+                    else if(separtorType==2){
+                    	spartor = "\\." ;
                     }
-
+                    else {
+                    	spartor = SEPARTOR;
+                    }
+                    
+                    return sortDataCompare(code1, code2, spartor );
                 }
-
-                return result;
+                catch(RuntimeException e) {
+                	throw e;
+                }
             }
         };
         Collections.sort(tmpMapData, compareSepartor);
         return tmpMapData;
     }
+    /**
+     * 
+     * @param code1
+     * @param code2
+     * @param tmpSpartor 
+     * @return
+     */
+    private int sortDataCompare(String code1,String code2,final String tmpSpartor  ) {
+    	int result =  0;
+        String[] arrayCode1 = code1.split(tmpSpartor);
+        String[] arrayCode2 = code2.split(tmpSpartor);
+        int lena = arrayCode1.length,lenb = arrayCode2.length;
+        int loopLen = Math.min(lena, lenb);
 
+        for (int i = 0; result ==0 && i < loopLen; i++) {
+            String strCode1 = arrayCode1[i];
+            String strCode2 = arrayCode2[i];
+            
+            if (isNumber(strCode1) && isNumber(strCode2)) {
+                result = Integer.parseInt(strCode1) -   Integer.parseInt(strCode2);
+                /** 以前的比较条啰嗦了，而且只比较长度会有逻辑问题：strCode1.length() > strCode2.length()，会报Comparison method violates its general contract!*/
+                /*
+                    int intCode1 = Integer.parseInt(strCode1);
+                    int intCode2 = Integer.parseInt(strCode2);
+                    if (intCode1 > intCode2) {
+                        result = 1;
+                        break;
+                    } else if (intCode1 < intCode2) {
+                        result = -1;
+                        break;
+                    } else if (i == (loopLen - 1)) { //这里有BUG
+                        if (arrayCode1.length > arrayCode2.length) {
+                            result = 1;
+                            break;
+                        } else {
+                            result = -1;
+                            break;
+                        }
+                    }
+
+                 */
+            }
+            else {
+               result = strCode1.compareTo(strCode2); 
+               /** 以前的比较条啰嗦了，而且只比较长度会有逻辑问题：strCode1.length() > strCode2.length()，会报Comparison method violates its general contract!*/
+                /*if (strCode1.length() > strCode2.length()) {
+                    result = 1;
+                } else if (strCode1.length() < strCode2.length()) {
+                    result = -1;
+                } else {
+                    if (strCode1.compareTo(strCode2) == 0) {
+                        if (i == (loopLen - 1)) {//这里有BUG
+                            if (arrayCode1.length < arrayCode2.length) {
+                                result = -1;
+                            } else {
+                                result = 1;
+                            }
+                        }
+                    } else {
+                        result = strCode1.compareTo(strCode2); 
+                    }
+                }*/
+            }
+
+        }
+        if (result ==0){//前面结果都相同，就比较长度
+        	result = (lena - lenb);
+        } 
+
+        return result;
+    }
     private List<Map<String, Object>> sortData(List<Map<String, Object>> excelData, String fieldCode, boolean isBizTree) {
         final String sortField = fieldCode;
         final boolean isBizCode = isBizTree;
@@ -1174,7 +1215,12 @@ class SaveDataBaseAction   {
         
         
         // 根据父子关系字段排序
-        result = bizCodeConfig != null ? getSortData(bizCodeConfig, isBizCodeTree, result, bizCodeField) : sortData(result, bizCodeField, isBizCodeTree);
+        if(bizCodeConfig == null) {
+        	result = sortData(result, bizCodeField, isBizCodeTree);
+        }
+        else {
+        	result =   getSortData(bizCodeConfig.toString(), isBizCodeTree, result, bizCodeField)  ;
+        }
 
         // 临时缓存,用于设置叶子节点,key=code,value=AbstractTreeDataObject
         Map<String, Object> idMap = new LinkedHashMap<String, Object>();
