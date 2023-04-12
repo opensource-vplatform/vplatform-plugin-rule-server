@@ -54,8 +54,17 @@ public class TenantAdminLoginRule implements IRule  {
 		String sessionId = null;//不知道在哪里取
 		ITenantService ts = VDS.getIntance().getTenantService();
 		String accountId= ts.doAdminLogin(sessionId, account, pwd);
+		
     	IRuleOutputVo vo = context.newOutputVo(); //VDS.getBuilder().getResponseBuilder();
-        return vo.put(D_OUT_SUCCESS, Boolean.valueOf(accountId!=null))
+    	Boolean success ;
+    	if(accountId == null) {
+    		success = Boolean.FALSE;
+    	}
+    	else {
+    		success = Boolean.TRUE;
+    		ts.setTenantCookie("admin");
+    	}
+        return vo.put(D_OUT_SUCCESS, success)
         		.put(D_OUT_AccountId,accountId);
 	}
 
