@@ -44,12 +44,14 @@ public class TenantServiceRegister implements IRegisterPlugin {
     	IPluginProfileVo currentTenantPro = getCurrentTenantRuleProfile();
     	IPluginProfileVo tenantCookiePro = getTenantCookieProfile();
     	IPluginProfileVo adminLogiPro =getAdminLogiProfile();
+    	IPluginProfileVo refreshCachePro = getTenantRefreshCacheRuleProfile();
     	List<IPluginProfileVo> rs = Arrays.asList(enableTenantPro
     			,deleteTenantPro
     			,forbidTenantPro
     			,currentTenantPro
     			,tenantCookiePro
     			,adminLogiPro
+    			,refreshCachePro
     			);
         return rs;
     }
@@ -202,6 +204,26 @@ public class TenantServiceRegister implements IRegisterPlugin {
     		.addOutput(successBuild.build())
     		.addOutput(accIdBuild.build())
     		;
+        return ruleBuilder.build();
+    }
+    /** 刷新租户缓存 */
+    private IRuleProfileVo getTenantRefreshCacheRuleProfile() {
+    	IRuleBuilder ruleBuilder = RegVds.getPlugin().getRulePlugin();
+    	ruleBuilder.setAuthor(D_Author)
+                .setCode(TenantRefreshCacheRule.D_RULE_CODE)
+                .setDesc(TenantRefreshCacheRule.D_RULE_DESC)
+                .setName(TenantRefreshCacheRule.D_RULE_NAME)
+                .setEntry(TenantRefreshCacheRule.class)
+                ;
+ 
+    	
+    	IRuleOutputBuilder successBuild = ruleBuilder.newOutput()
+    		.setCode(TenantRefreshCacheRule.D_OutValue)
+    		.setType(VariableType.Boolean)
+    		.setName("刷新成功");
+    		
+    	
+    	ruleBuilder.addOutput(successBuild.build());
         return ruleBuilder.build();
     }
     
