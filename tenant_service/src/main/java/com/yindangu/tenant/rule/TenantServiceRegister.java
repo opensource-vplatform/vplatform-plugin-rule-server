@@ -4,10 +4,14 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.yindangu.v3.plugin.vds.reg.api.IRegisterPlugin;
+import com.yindangu.v3.plugin.vds.reg.api.builder.IFunctionBuilder;
+import com.yindangu.v3.plugin.vds.reg.api.builder.IFunctionBuilder.IFuncInputBuilder;
+import com.yindangu.v3.plugin.vds.reg.api.builder.IFunctionBuilder.IFuncOutputBuilder;
 import com.yindangu.v3.plugin.vds.reg.api.builder.IRuleBuilder;
 import com.yindangu.v3.plugin.vds.reg.api.builder.IRuleBuilder.IRuleInputBuilder;
 import com.yindangu.v3.plugin.vds.reg.api.builder.IRuleBuilder.IRuleOutputBuilder;
 import com.yindangu.v3.plugin.vds.reg.api.model.IComponentProfileVo;
+import com.yindangu.v3.plugin.vds.reg.api.model.IFunctionProfileVo;
 import com.yindangu.v3.plugin.vds.reg.api.model.IPluginProfileVo;
 import com.yindangu.v3.plugin.vds.reg.api.model.IRuleProfileVo;
 import com.yindangu.v3.plugin.vds.reg.api.model.VariableType;
@@ -45,6 +49,8 @@ public class TenantServiceRegister implements IRegisterPlugin {
     	IPluginProfileVo tenantCookiePro = getTenantCookieProfile();
     	IPluginProfileVo adminLogiPro =getAdminLogiProfile();
     	IPluginProfileVo refreshCachePro = getTenantRefreshCacheRuleProfile();
+    	
+    	IPluginProfileVo tenantModePro = getTenantModeStateRuleProfile();
     	List<IPluginProfileVo> rs = Arrays.asList(enableTenantPro
     			,deleteTenantPro
     			,forbidTenantPro
@@ -52,6 +58,7 @@ public class TenantServiceRegister implements IRegisterPlugin {
     			,tenantCookiePro
     			,adminLogiPro
     			,refreshCachePro
+    			,tenantModePro
     			);
         return rs;
     }
@@ -224,6 +231,26 @@ public class TenantServiceRegister implements IRegisterPlugin {
     		
     	
     	ruleBuilder.addOutput(successBuild.build());
+        return ruleBuilder.build();
+    }
+    /** 当前是否多租户模式 */
+    @SuppressWarnings({  "deprecation" })
+	private IFunctionProfileVo getTenantModeStateRuleProfile() {
+    	IFunctionBuilder ruleBuilder = RegVds.getPlugin().getFunctiontPlugin();
+    	ruleBuilder.setAuthor(D_Author)
+                .setCode(IsTenantModeRule.D_RULE_CODE)
+                .setDesc(IsTenantModeRule.D_RULE_DESC)
+                .setName(IsTenantModeRule.D_RULE_NAME)
+                .setEntry(IsTenantModeRule.class)
+                ;
+ 
+    	
+    	IFuncOutputBuilder successBuild = ruleBuilder.newOutput()
+    		.setType(VariableType.Boolean)
+    		.setDesc("是否租户模式");
+    		
+    	
+    	ruleBuilder.setOutput(successBuild.build());
         return ruleBuilder.build();
     }
     
