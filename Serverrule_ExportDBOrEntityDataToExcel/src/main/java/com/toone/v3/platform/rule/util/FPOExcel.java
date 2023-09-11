@@ -30,8 +30,9 @@ import java.util.*;
 /**
  * @Author xugang
  * @Date 2021/7/26 10:11
+ * 在{@linkplain 00platform/07service-refactory/06file/01export/java/com/toone/itop/common/export/impl/FPOExcel.java} 还有一个相同功能的，修改时记得同时改
  */
-public class FPOExcel {
+class FPOExcel {
 
     static {
         ConvertUtils.register(new UtilConverterDate(), java.util.Date.class);
@@ -390,10 +391,12 @@ public class FPOExcel {
     /**
      * 写入数据到WorkBook中
      */
-    public void writeExcel(List modelList, FModelMapper mm, Workbook wb,String sheetName) {
+//    protected void writeExcel(List modelList, FModelMapper mm, Sheet sheet) {
+//    }
+    protected void writeExcelSheet(List modelList, FModelMapper mm, Sheet sheet) {
         // ModelMapper起始行参数从1开始， POI起始行从0开始
         int row = mm.getStartRow() - 1;
-        Sheet sheet = wb.getSheet(sheetName);
+        //Sheet sheet = wb.getSheet(sheetName);
         String titleText = mm.getTitleText();
         // 如果标题行不空，并且用户设置预留有标题行的位置
 //		if (!StringUtils.isEmpty(titleText) && row - 2 >= 0) {
@@ -410,16 +413,19 @@ public class FPOExcel {
 //		if (row - 1 >= 0) {
 //			writeColumnTitle(sheet, mm); // 写表头
 //		}
-        for (Iterator it = modelList.iterator(); it.hasNext(); row++) {
-            Object model = it.next();
-            for (Iterator iter = mm.getProperties().entrySet().iterator(); iter.hasNext();) {
-                Map.Entry entry = (Map.Entry) iter.next();
-                FProperty pm = (FProperty) (entry.getValue());
+//        for (Iterator it = modelList.iterator(); it.hasNext(); row++) {
+//            Object model = it.next();
+        
+        for(int i =0 ,size = modelList.size();i < size;i++) {
+//            for (Iterator iter = mm.getProperties().entrySet().iterator(); iter.hasNext();) {
+        	for(Object entry : mm.getProperties().entrySet()) {
+        		Object p = ((Map.Entry) entry).getValue();//iter.next();
+                FProperty pm = (FProperty) p;
 
-                if (pm.getName() != null && pm.getName().trim().length() > 0 && pm.isNeedExport()) {
-                    Object value = getPropertyValue(pm.getName(), model);
-                    writeCellValue(pm.getColumn() - 1, row, value, sheet, pm.getType());
-                }
+//                if (pm.getName() != null && pm.getName().trim().length() > 0 && pm.isNeedExport()) {
+//                    Object value = getPropertyValue(pm.getName(), rowValues);
+//                    writeCellValue(pm.getColumn() - 1, row, value, sheet, pm.getType());
+//                }
 
                 /**
                  * 梁朝辉 2015-02-13
@@ -433,16 +439,21 @@ public class FPOExcel {
                  *		writeCellValue(pm.getColumn() - 1, row, value, sheet, pm.getType());
                  *	}
                  */
-                // name为空不写入
-                if (pm.getName() != null && pm.getName().trim().length() > 0) {
+             // name为空不写入
+				String fd = pm.getName(); 
+				if (!isEmpty(fd)) {
                     // 如果不需要导出数据，则把单元格的值设置为空
-                    Object value = pm.isNeedExport() == true ? getPropertyValue(pm.getName(), model) : null;
-                    writeCellValue(pm.getColumn() - 1, row, value, sheet, pm.getType());
+					Object value = null;
+  					if(pm.isNeedExport()) {
+  						Object rowValues = modelList.get(i);
+  						value = getPropertyValue(fd, rowValues);
+  					}
+                    writeCellValue(pm.getColumn() - 1, row +i, value, sheet, pm.getType());
                 }
             }
         }
     }
-
+ 
     private Object getPropertyValue(String propertyName, Object object) {
         try {
             if (object instanceof IDataObject) {
@@ -557,37 +568,43 @@ public class FPOExcel {
     // 往Excel表格中写入数据。
     private void writeCellValue(int column, int row, Object value, Sheet hs, ColumnType type) {
 //		try {
-        Cell cell;
-        if (hs.getRow(row) == null) {
-            cell = hs.createRow(row).createCell(column);
-
-        }
-        else {
-            cell = hs.getRow(row).createCell(column);
-        }
+    	Row excelRow = hs.getRow(row);
+    	if (excelRow == null) {
+			excelRow = hs.createRow(row);//.createCell(column); 
+		}
+		else {
+			//cell = hs.getRow(row).createCell(column);
+		}
+    	Cell cell = excelRow.createCell(column);
         writeCell(cell, value, type);
 //		}
     }
 
     private void writeCell(Cell cell, Object value, ColumnType type) {
-        if(value==null)
-            value="";
-        if ((ColumnType.Number==type||ColumnType.Integer==type) &&
-                value instanceof Number) {
-            try {
-                double dou = ((Number)value).doubleValue();
-                cell.setCellValue(dou);
-                cell.setCellType(Cell.CELL_TYPE_NUMERIC);
-            }
-            catch (NumberFormatException e) {
-                cell.setCellValue(getRichTextString(value.toString()));
-                cell.setCellType(Cell.CELL_TYPE_STRING);
-            }
+        
+        if (value!=null 
+        		&& (ColumnType.Number==type||ColumnType.Integer==type) 
+        		&& value instanceof Number) {
+            double dou = ((Number)value).doubleValue();
+            cell.setCellValue(dou);
+            cell.setCellType(Cell.CELL_TYPE_NUMERIC);
         }
-        else {
-            cell.setCellValue(getRichTextString(value.toString()));
-            cell.setCellType(Cell.CELL_TYPE_STRING);
-        }
+        else if(value!=null 
+				&& ColumnType.Boolean == type) {
+			boolean b;
+			if(value instanceof Boolean) {
+				b = ((Boolean)value).booleanValue();
+			}
+			else {
+				b = Boolean.parseBoolean(value.toString());
+			}
+			cell.setCellValue(getRichTextString(b ? "是":"否"));
+			cell.setCellType(Cell.CELL_TYPE_STRING);
+		}
+		else {
+			cell.setCellValue(getRichTextString(value == null ? "": value.toString()));
+			cell.setCellType(Cell.CELL_TYPE_STRING);
+		}
 
     }
 

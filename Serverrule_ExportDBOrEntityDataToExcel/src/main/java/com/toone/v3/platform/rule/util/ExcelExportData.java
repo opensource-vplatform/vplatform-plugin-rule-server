@@ -102,7 +102,7 @@ public class ExcelExportData {
             Sheet sheet =  wb.createSheet(sheetName);
             wb.setSheetOrder(sheet.getSheetName(), wb.getNumberOfSheets()-1);
             try{
-                new FPOExcel(version).writeExcel(list, mapper, wb,sheetName);
+                new FPOExcel(version).writeExcelSheet(list, mapper,sheet);
             }catch (Exception e) {
                 // TODO: handle exception
                 if(list.size()>65535){
@@ -167,7 +167,7 @@ public class ExcelExportData {
             }
             Sheet sheet = wb.createSheet(sheetName);
             wb.setSheetOrder(sheet.getSheetName(), wb.getNumberOfSheets()-1);
-            new FPOExcel(version).writeExcel(list, mapper, wb,sheetName);
+            new FPOExcel(version).writeExcelSheet(list, mapper, sheet);
         }
         Workbook workBook = wb;
         workBook.write(out);
