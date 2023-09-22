@@ -505,12 +505,12 @@ class FPOExcel {
 //			if (StringUtils.isEmpty(value))
 //				value = pm.getName();
             //设置中文
-            writeCellValue(pm.getColumn()-1, titleRow-2, cname, hs, pm.getType());
+            writeCellValue(pm.getColumn()-1, titleRow-2, cname, hs,ColumnType.Text);// pm.getType());
             // 设置列宽
             hs.setColumnWidth((pm.getColumn()-1), pm.getWidth());
 
             //设置英文
-            writeCellValue(pm.getColumn() - 1, titleRow - 1, value, hs, pm.getType());
+            writeCellValue(pm.getColumn() - 1, titleRow - 1, value, hs,ColumnType.Text);// pm.getType());
             // 设置列宽
             hs.setColumnWidth((pm.getColumn() - 1), pm.getWidth());
             hs.getRow(0).setHeight((short) (255*2));
@@ -554,9 +554,10 @@ class FPOExcel {
             // continue;
 
             String value = pm.getTitle();
-            if (isEmpty(value))
+            if (isEmpty(value)) {
                 value = pm.getName();
-            writeCellValue(pm.getColumn() - 1, titleRow - 1, value, hs, pm.getType());
+            }
+            writeCellValue(pm.getColumn() - 1, titleRow - 1, value, hs, ColumnType.Text);
             // 设置列宽
             hs.setColumnWidth((pm.getColumn() - 1), pm.getWidth());
             hs.getRow(0).setHeight((short) (255*2));
