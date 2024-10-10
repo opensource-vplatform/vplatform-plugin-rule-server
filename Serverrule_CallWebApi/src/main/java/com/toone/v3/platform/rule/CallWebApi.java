@@ -390,11 +390,14 @@ public class CallWebApi implements IRule {
         		;//
         	}
         	else {
-        	    ContextVariableType vt =ContextVariableType.getInstanceType(invokeTargetType);
-        	    if(vt == null) {
-        		    throw new ConfigException("不能识别的变量作用域范围类型，invokeTargetType=" + invokeTargetType);
-        	    }
-        	    vobj.setContextObject(vt, invokeTarget, false);
+                // 兼容旧配置没有invokeTargetType参数的情况，这种情况下不处理
+                if (invokeTargetType != null && !"".equals(invokeTargetType)) {
+                    ContextVariableType vt =ContextVariableType.getInstanceType(invokeTargetType);
+                    if(vt == null) {
+                        throw new ConfigException("不能识别的变量作用域范围类型，invokeTargetType=" + invokeTargetType);
+                    }
+                    vobj.setContextObject(vt, invokeTarget, false);
+                }
         	}
     	}
     }
