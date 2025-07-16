@@ -28,6 +28,7 @@ import com.yindangu.v3.business.vsql.apiserver.IVSQLOrderBy;
 import com.yindangu.v3.business.vsql.apiserver.IVSQLQuery;
 import com.yindangu.v3.business.vsql.apiserver.VSQLConditionLogic;
 import com.yindangu.v3.platform.plugin.util.VdsUtils;
+
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
@@ -74,24 +75,24 @@ public class ExportDBOrEntityDataToExcel implements IRule {
 
             //获取临时文件
             File tmpFile = exportTmpFile(configData, singleConf, version);
-
+            String result = VdsUtils.uuid.generate();
             // 临时文件留到输入流关闭时清除
             InputStream in = new FileInputStreamWrapper(tmpFile);
             IAppFileInfo fileInfo = getVDS().newAppFileInfo();
-            fileInfo.setId(VdsUtils.uuid.generate());
+            fileInfo.setId(result);
             if (singleConf != null) {
                 fileInfo.setFileType(singleConf.getExportFileExtension());
                 fileInfo.setOldFileName(singleConf.getDefaultFileName());
             }
             fileInfo.setFileSize(tmpFile.length());
             fileInfo.setDataStream(in);
+            fileInfo.setBusinessCode("ExportExcel");
             IFileOperate fileOperate = getVDS().getFileOperate();
-            fileOperate.saveFileInfo(fileInfo);
-            String result = fileInfo.getId();
-            List sourceList = (List) context.getPlatformInput("fileIdSave");
+            fileOperate.saveFileInfo(fileInfo, true);
             //保存文件ID到变量
+            List sourceList = (List) context.getPlatformInput("fileIdSave");
             SetResult(result, sourceList, context);
-
+            //
             IRuleOutputVo outputVo = context.newOutputVo();
             outputVo.put(result);
             return outputVo;
