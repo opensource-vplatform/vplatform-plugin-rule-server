@@ -27,6 +27,7 @@ import com.yindangu.v3.business.metadata.api.IDAS;
 import com.yindangu.v3.business.metadata.api.IDataObject;
 import com.yindangu.v3.business.metadata.api.IDataView;
 import com.yindangu.v3.business.plugin.business.api.rule.ContextVariableType;
+import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.execptions.BusinessException;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.EnviException;
@@ -101,7 +102,16 @@ class SaveDataBaseAction   {
     	private IDataView targetDataView;
     	private FModelMapper modelMapper;
     	private int sheetIndex;
-    	private String tableName;
+    	private String sheetName;
+    	public String getSheetName() {
+			return sheetName;
+		}
+
+		public void setSheetName(String sheetName) {
+			this.sheetName = sheetName;
+		}
+
+		private String tableName;
     	
     	private boolean tree;
     	private Map treeStructMap;
@@ -271,9 +281,9 @@ class SaveDataBaseAction   {
     	
     }
     // 20170423 最新
-	public ExcelResultVo saveDataBase(ParamsVo vo, InputStream inputStream) {
+	public ExcelResultVo saveDataBase(IRuleContext context,ParamsVo vo, InputStream inputStream) {
 		POIExcelAction excel = builderExcel(vo, inputStream);
-    	List<Map<String, Object>> records = excel.readData();//readExcelData(vo, inputStream);
+    	List<Map<String, Object>> records = excel.readData(context);//readExcelData(vo, inputStream);
     	IDataView dv = updateToDataBase(vo, records);
     	return new ExcelResultVo(dv,excel,vo.getSheetIndex()); 
     }
@@ -304,6 +314,7 @@ class SaveDataBaseAction   {
         rsb.setInputStream(inputStream)
         		.setTable(dataSetMetaData)
         		.setSheetIndex(sheetIndex)
+        		.setSheetName(pars.getSheetName())
         		.setFieldMap(mapper)
         		.setMerged(pars.getMergedType())
         		; 
@@ -1301,7 +1312,7 @@ class SaveDataBaseAction   {
                 // 修改父亲节点为非叶子节点
                 parentNode.set(isLeafColumn, false);
             } else {
-                throw new ConfigException("节点【" + code + "】的父节点【" + parentCode + "】不存在，请检查!");
+                throw new BusinessException("excel导入数据中节点【" + code + "】的父节点【" + parentCode + "】不存在，请检查!");
             }
 
             // 当前节点在数据库中最大的OrderNo

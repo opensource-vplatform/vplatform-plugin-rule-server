@@ -64,6 +64,7 @@ public class ImportExcelToDBOrEntity2 implements IRule {
         
         InputStream inputStream = null;
         try {
+        	ImportExcelToDBOrEntity.removeWorkbookCache();
         	String execlFileExps  ;
         	MergedType mergedType ;  
         	List<PostionVo> cellposition; 
@@ -109,6 +110,7 @@ public class ImportExcelToDBOrEntity2 implements IRule {
         } finally {
         	logger.info("后台导入Excel数据,总时长：" + (System.currentTimeMillis() - starTime) + "毫秒");
         	close(inputStream);
+        	ImportExcelToDBOrEntity.removeWorkbookCache();
         }        
     }
     private InputStream getInputStream(String execlFileExps) {

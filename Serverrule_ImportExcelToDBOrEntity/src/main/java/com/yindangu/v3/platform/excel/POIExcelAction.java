@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
+import org.apache.commons.codec.binary.StringUtils;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -29,12 +30,15 @@ import com.toone.v3.platform.rule.model.FProperty;
 import com.yindangu.commons.CaseInsensitiveLinkedMap;
 import com.yindangu.v3.business.jdbc.api.model.ColumnType;
 import com.yindangu.v3.business.jdbc.api.model.IDataSetMetaData;
+import com.yindangu.v3.business.plugin.business.api.rule.ContextVariableType;
+import com.yindangu.v3.business.plugin.business.api.rule.IRuleContext;
 import com.yindangu.v3.business.plugin.execptions.BusinessException;
 import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.EnviException;
 import com.yindangu.v3.business.plugin.execptions.PluginException;
 import com.yindangu.v3.platform.excel.MergedRegionVo.RegionVo;
-import com.yindangu.v3.platform.plugin.util.VdsUtils; 
+import com.yindangu.v3.platform.plugin.util.VdsUtils;
+import com.yindangu.v3.platform.rule.ImportExcelToDBOrEntity; 
 /**
  * 读取Sheet内容
  * @author jiqj
@@ -42,10 +46,12 @@ import com.yindangu.v3.platform.plugin.util.VdsUtils;
  */
 public class POIExcelAction{
 	private static final Logger log = LoggerFactory.getLogger(POIExcelAction.class);
+	private static String MsgVarName="sys__importExcel__msg";
 	/**读取一个Sheet内容*/
 	public static class ReaderBuilder{
 		//private Sheet sheet ;
 		private int sheetIndex;
+		private String sheetName;
 		private FModelMapper fieldMap; 
 		private IDataSetMetaData table;
 		private MergedType merged;
@@ -72,6 +78,16 @@ public class POIExcelAction{
 			this.sheetIndex = sheetIndex;
 			return this;
 		}
+		
+		/**
+		 * 
+		 * @param sheetIndex -1表示全部
+		 * @return
+		 */
+		public ReaderBuilder setSheetName(String sheetName) {
+			this.sheetName = sheetName;
+			return this;
+		}
 
 		public ReaderBuilder setFieldMap(FModelMapper mm) {
 			this.fieldMap = mm;
@@ -86,8 +102,8 @@ public class POIExcelAction{
 			if(inputStream == null) {
 				throw new ConfigException("读取Excel数据流:Workbook.inputStream == null");
 			}
-			if(sheetIndex == -2) {
-				throw new ConfigException("请配置读取的sheet下标，-1表示全部");
+			if((sheetName==null||sheetName.equals(""))&&sheetIndex == -2) {
+				throw new ConfigException("请配置读取的sheet下标，-1表示全部"+",sheetName="+sheetName);
 			}
 			if(merged == null) { //使用默认配置
 				//merged = ImportExcelConfig.getConfig().getMergedType();
@@ -119,31 +135,69 @@ public class POIExcelAction{
 	 * https://blog.csdn.net/xiaozaq/article/details/54097720
 	 * @return 返回记录数（取得数据需要通过 {@linkplain #getExcelRecords()}方法）
 	 */
+	
+	private Workbook workbook =null;
 	public List<Map<String,Object>> readData(){
+		return readData(null);
+	}
+	public List<Map<String,Object>> readData(IRuleContext context){
 		int sheetIndex = builder.sheetIndex;
+		String sheetName=builder.sheetName;
 		long startTime = System.currentTimeMillis();
 		try {
-			Workbook workbook = WorkbookFactory.create(builder.inputStream);
+			workbook=ImportExcelToDBOrEntity.getWorkbook();
+			if(workbook==null){
+				workbook = WorkbookFactory.create(builder.inputStream);
+				ImportExcelToDBOrEntity.cacheWorkbook(workbook);
+			}
+			
 	        int sheetCount = workbook.getNumberOfSheets();
 	        long readTime = System.currentTimeMillis();
-	        
+	       
 	        List<Map<String,Object>> records;
-			if(sheetIndex ==-1) { //全部
-				records = new ArrayList<>();
-				for(int i =0 ;i < sheetCount ;i++) {
-					Sheet sheet = workbook.getSheetAt(sheetIndex);
-					boolean checkHeader =(i ==0);//第一个sheet检查列头
-					List<Map<String,Object>> rds = this.readSheet(sheet, checkHeader);
-					records.addAll(rds);
+	        boolean checkHeader=false;//这里去掉校验列头的缺失
+	        if(sheetName!=null&&!sheetName.equals("")){
+	        	Sheet sheet = workbook.getSheet(sheetName);	        	
+	        	
+	        	if(sheet==null){
+	        		records=new ArrayList<>();
+	        		log.warn("excel导入找不到sheet="+sheetName);
+	        		//设置缺省的提示信息变量
+	        		if(context!=null){
+	        			String warnMsg=(String)context.getVObject().getContextObject(MsgVarName, ContextVariableType.RuleSetVar);
+			        	String test="";
+	        			//这里写死输出excel导入校验提示信息		        	
+			        	if(warnMsg==null||warnMsg.equals("")){
+			        		warnMsg=sheetName;
+			        	}else{
+			        		warnMsg=warnMsg+","+sheetName;
+			        	}
+			        	context.getVObject().setContextObject(ContextVariableType.RuleSetVar, MsgVarName, warnMsg);
+		        		
+	        			
+	        		}
+	        		return records;
+	        	}
+	        	records = this.readSheet(sheet,checkHeader);
+	        }else{
+	        	if(sheetIndex ==-1) { //全部
+					records = new ArrayList<>();
+					for(int i =0 ;i < sheetCount ;i++) {
+						Sheet sheet = workbook.getSheetAt(sheetIndex);
+//						boolean checkHeader =(i ==0);//第一个sheet检查列头
+						List<Map<String,Object>> rds = this.readSheet(sheet, checkHeader);
+						records.addAll(rds);
+					}
 				}
-			}
-			else if(sheetIndex >=0 && sheetIndex < sheetCount) { //指定
-				Sheet sheet = workbook.getSheetAt(sheetIndex);
-				records = this.readSheet(sheet,true);
-			}
-			else {
-	        	throw new EnviException("sheet下标越界(sheet总数是:" + sheetCount + ",sheetIndex:" + sheetIndex + ")");
-			} 
+				else if(sheetIndex >=0 && sheetIndex < sheetCount) { //指定
+					Sheet sheet = workbook.getSheetAt(sheetIndex);
+					records = this.readSheet(sheet,checkHeader);
+				}
+				else {
+		        	throw new EnviException("sheet下标越界(sheet总数是:" + sheetCount + ",sheetIndex:" + sheetIndex + ")");
+				} 
+	        }
+			
 			
 			long endTime = System.currentTimeMillis();
 			String msg ="读取excel.sheet=[" + (sheetIndex== -1 ? sheetCount:sheetIndex) 
@@ -238,6 +292,9 @@ public class POIExcelAction{
 			else { //有映射对象
 				for(FProperty pm : columns) {
 					int col = pm.getColumn();
+					if(col<0){
+						continue;
+					}
 					Cell cell = row.getCell(col);
 					Object value ;
 					String fieldName = pm.getName();
@@ -448,20 +505,37 @@ public class POIExcelAction{
 			else if (ColumnType.Boolean==sourceType) {
 				val = cell.getBooleanCellValue();
 			}
-			else if (HSSFDateUtil.isCellDateFormatted(cell)) {  
-				// 兼容处理 2020-11-09 zhangyb 当公式为Date的时候会返回匪夷所思的结果： 比如：2020/11/09 会返回 44144
-                Date date = cell.getDateCellValue();
-                val = formatDate(date);//DateFormatUtils.format(date, "yyyy-MM-dd");
-            }
 			else {
-				readfs = false;
-			}
+				boolean isDate=false;
+				try {
+					isDate=HSSFDateUtil.isCellDateFormatted(cell);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					log.error("公式数据解析问题:sheet="+cell.getSheet().getSheetName()+",列="+fieldName+",行="+cell.getRowIndex()+"公式="+cell.getCellFormula());
+					return null;
+				}
+				
+				if (isDate) {  
+			
+					// 兼容处理 2020-11-09 zhangyb 当公式为Date的时候会返回匪夷所思的结果： 比如：2020/11/09 会返回 44144
+	                Date date = cell.getDateCellValue();
+	                val = formatDate(date);//DateFormatUtils.format(date, "yyyy-MM-dd");
+				}else {
+					readfs = false;
+				}
+				
+            }
+			
 			
 			if(!readfs){
 				try {  
 					val = String.valueOf(cell.getStringCellValue());  
 				} catch (IllegalStateException e) {  
-					val = cell.getNumericCellValue();  
+					try {
+						val = cell.getNumericCellValue();
+					} catch (Exception e1) {
+						val=null;
+					}  
 				} 
 			}
 			flag = true;
@@ -574,8 +648,21 @@ public class POIExcelAction{
                 String cellValue = getRichStringCellValue(c) ;// cell.getRichStringCellValue().getString();
                 String trimValue = trimAllSpaceAndRF(cellValue);
                 for (FProperty pm : mps ) {
-                    if (pm.getColumn() == -1 &&  trimValue.equalsIgnoreCase(pm.getTitle())) {
-                    	pm.setColumn(c.getColumnIndex());
+                    if (pm.getColumn() == -1 ) {
+                    	String title=pm.getTitle();
+                    	if(trimValue.equalsIgnoreCase(pm.getTitle())){
+                    		pm.setColumn(c.getColumnIndex());
+                    	}else if(title!=null){
+                    		String[] titles=title.split(",");
+                    		for (String subTitle : titles) {
+                    			if(trimValue.equalsIgnoreCase(subTitle)){
+                            		pm.setColumn(c.getColumnIndex());
+                            		break;
+                            	}
+							}
+                    		
+                    	}                    	                   	
+                    	
                     }
                 }
             }

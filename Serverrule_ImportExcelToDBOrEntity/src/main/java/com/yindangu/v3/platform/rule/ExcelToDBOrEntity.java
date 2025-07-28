@@ -36,6 +36,7 @@ import com.yindangu.v3.platform.rule.SaveDataBaseAction.ExcelContextType;
 import com.yindangu.v3.platform.rule.SaveDataBaseAction.ExcelResultVo;
 import com.yindangu.v3.platform.rule.SaveDataBaseAction.ParamsVo;
 import com.yindangu.v3.platform.rule.SaveDataBaseAction.RepeatType;
+import com.yindangu.v3.plugin.vds.reg.common.util.StringUtil;
 
 class ExcelToDBOrEntity{
 	private static final Logger logger = LoggerFactory.getLogger(ExcelToDBOrEntity.class);
@@ -90,7 +91,7 @@ class ExcelToDBOrEntity{
 			SaveDataBaseAction act = new SaveDataBaseAction();
 			ParamsVo params = parseParamsVo(context, cfgMap);
 			params.setMergedType(type);
-	    	ExcelResultVo excelVo =  act.saveDataBase(params, inputStream);
+	    	ExcelResultVo excelVo =  act.saveDataBase(context,params, inputStream);
 	    	
 	    	IDataView dv = excelVo.getDataView();
 	    	// 更新数据
@@ -170,10 +171,26 @@ class ExcelToDBOrEntity{
 
          FModelMapper mapper = getModelMapperByExcelImportCfg(dCfg, sourceDataView);
          int sheetIndex = -2;
+         //兼容支持按sheet名称导入
+         String sheetName="";
          try {
         	 Object sheetNum = cfgMap.get("sheetNum");
              sheetNum = getVDS().getFormulaEngine().eval(sheetNum.toString());
-             sheetIndex = Integer.parseInt(sheetNum.toString());
+             String regex = "^[-+]?\\d+$";
+             if(sheetNum instanceof Integer){
+            	 sheetIndex= (Integer)sheetNum;
+            	 
+             }else{
+            	 String sheetNumStr=sheetNum.toString();
+            	 boolean isInteger = sheetNumStr.matches(regex);
+            	 if(isInteger){
+            		 sheetIndex= Integer.parseInt(sheetNumStr);
+            	 }else{
+            		 sheetName=sheetNumStr;
+            	 }
+            	 
+             }
+             
          } catch (Exception e) {
              throw new ConfigException("获取配置的sheet序号失败", e);
          }
@@ -185,7 +202,12 @@ class ExcelToDBOrEntity{
          vo.setSourceDataView(sourceDataView);
          //vo.setPhyscTable(isPhyscTable);
          vo.setModelMapper(mapper);
-         vo.setSheetIndex(sheetIndex);
+         if("".equals(sheetName)){
+        	 vo.setSheetIndex(sheetIndex);
+         }else{
+        	 vo.setSheetName(sheetName);
+         }
+         
          vo.setTableName(tableName);
          
          {

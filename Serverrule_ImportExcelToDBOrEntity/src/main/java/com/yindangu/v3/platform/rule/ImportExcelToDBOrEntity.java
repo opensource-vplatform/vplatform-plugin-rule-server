@@ -5,7 +5,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
+import org.apache.commons.codec.binary.StringUtils;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +21,7 @@ import com.yindangu.v3.business.plugin.execptions.ConfigException;
 import com.yindangu.v3.business.plugin.execptions.PluginException;
 import com.yindangu.v3.business.vds.IVDS;
 import com.yindangu.v3.platform.excel.MergedType;
+import com.yindangu.v3.plugin.vds.reg.common.util.StringUtil;
 
 /**
  * 导入excel数据，第一版，与开发系统绑死的
@@ -26,6 +30,22 @@ import com.yindangu.v3.platform.excel.MergedType;
  */
 public class ImportExcelToDBOrEntity implements IRule { 
 	private static final Logger logger = LoggerFactory.getLogger(ImportExcelToDBOrEntity.class);
+	protected static ThreadLocal<Workbook>			workbookThreadLocal			= new ThreadLocal<Workbook>();
+
+	public static Workbook getWorkbook(){
+		return workbookThreadLocal.get();
+	}
+	
+	public static void cacheWorkbook(Workbook workbook){
+		workbookThreadLocal.set(workbook);
+	}
+	
+	public static void removeWorkbookCache(){
+		if(workbookThreadLocal.get()!=null){
+			workbookThreadLocal.remove();
+		}
+		
+	}
 	/**
      * 默认方法
      * @param context
@@ -43,12 +63,15 @@ public class ImportExcelToDBOrEntity implements IRule {
         InputStream inputStream = null;
         try {
             List<Map<String, Object>> itemsList = (List) context.getPlatformInput("items");
-            for (Map<String, Object> singleItem : itemsList) {
-                IAppFileInfo appFileInfo = getVDS().getFileOperate().getFileInfo(fileId);
-                if (appFileInfo == null) {
-                    throw new ConfigException("后台导入Excel规则，获取文件标识为【" + fileId + "】文件对象，请检查");
-                }
-                inputStream = appFileInfo.getDataStream();
+            int itemSize=itemsList.size();
+            removeWorkbookCache();
+            
+            IAppFileInfo appFileInfo = getVDS().getFileOperate().getFileInfo(fileId);
+            if (appFileInfo == null) {
+                throw new ConfigException("后台导入Excel规则，获取文件标识为【" + fileId + "】文件对象，请检查");
+            }
+            inputStream = appFileInfo.getDataStream();
+            for (Map<String, Object> singleItem : itemsList) {               
                 ExcelToDBOrEntity db = new ExcelToDBOrEntity();
                 db.importToDB(context, singleItem, inputStream,MergedType.None);
                 close(inputStream);
@@ -64,6 +87,7 @@ public class ImportExcelToDBOrEntity implements IRule {
         catch (Exception e) {
             throw new ConfigException("后台导入Excel规则，执行失败！\n" + e.getMessage(), e);
         } finally {
+        	removeWorkbookCache();
         	logger.info("后台导入Excel数据,总时长：" + (System.currentTimeMillis() - starTime) + "毫秒");
         	close(inputStream);
         }        
