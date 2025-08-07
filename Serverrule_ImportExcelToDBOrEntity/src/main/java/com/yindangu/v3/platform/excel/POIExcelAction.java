@@ -434,134 +434,143 @@ public class POIExcelAction{
 	 * @return cell转换后的值 ，表示没有取得值
 	 */
 	private Object parseCellValue(Cell cell, String fieldName, ColumnType sourceType ,IDataSetMetaData  metaData) {
-		Object val = null;
-		boolean flag ;
-		/*String key =String.valueOf(cell.getColumnIndex());
-		ColumnType type = null;
-		if(pm!=null) {
-			key = pm.getName();
-			type = pm.getType();
-		}*/ 
-		int cellType = cell.getCellType();
-		if (Cell.CELL_TYPE_NUMERIC == cellType) {
-			// 判断是不是日期格式
-			if (DateUtil.isCellDateFormatted(cell)) {
-				if (ColumnType.Date == sourceType) {
-					val = formatDate(cell.getDateCellValue());//val = DateUtils.DATE_FORMAT.format(cell.getDateCellValue());
-					flag = true;
-				}
-				else if (ColumnType.LongDate  == sourceType) {
-					val = formatDateTime(cell.getDateCellValue());//val = DateUtils.DATE_TIME_FORMAT.format(cell.getDateCellValue());
-					flag = true;
+		try{
+			Object val = null;
+			boolean flag ;
+			/*String key =String.valueOf(cell.getColumnIndex());
+			ColumnType type = null;
+			if(pm!=null) {
+				key = pm.getName();
+				type = pm.getType();
+			}*/ 
+			int cellType = cell.getCellType();
+			if (Cell.CELL_TYPE_NUMERIC == cellType) {
+				// 判断是不是日期格式
+				if (DateUtil.isCellDateFormatted(cell)) {
+					if (ColumnType.Date == sourceType) {
+						val = formatDate(cell.getDateCellValue());//val = DateUtils.DATE_FORMAT.format(cell.getDateCellValue());
+						flag = true;
+					}
+					else if (ColumnType.LongDate  == sourceType) {
+						val = formatDateTime(cell.getDateCellValue());//val = DateUtils.DATE_TIME_FORMAT.format(cell.getDateCellValue());
+						flag = true;
+					}
+					else {
+						val = cell.getDateCellValue();
+						flag = true;
+					}
 				}
 				else {
-					val = cell.getDateCellValue();
+					// 读出数值
+					val = cell.getNumericCellValue();
 					flag = true;
 				}
 			}
-			else {
-				// 读出数值
-				val = cell.getNumericCellValue();
+			else if (Cell.CELL_TYPE_STRING == cellType) {
+				// 读出字符串
+				String cellValue = getRichStringCellValue(cell); 
+				ColumnType targetType = getColumnType(metaData, fieldName);
 				flag = true;
-			}
-		}
-		else if (Cell.CELL_TYPE_STRING == cellType) {
-			// 读出字符串
-			String cellValue = getRichStringCellValue(cell); 
-			ColumnType targetType = getColumnType(metaData, fieldName);
-			flag = true;
-			if(cellValue.length() ==0) {
-				flag = false;//没有值
-			}
-			else if(ColumnType.Boolean.equals(targetType)){
-				if ("是".equals(cellValue)) {
-					val = Boolean.TRUE; 
+				if(cellValue.length() ==0) {
+					flag = false;//没有值
 				}
-				else if ("否".equals(cellValue))  {
-					val = Boolean.FALSE; 
-				}else   {
-					val = cellValue; 
+				else if(ColumnType.Boolean.equals(targetType)){
+					if ("是".equals(cellValue)) {
+						val = Boolean.TRUE; 
+					}
+					else if ("否".equals(cellValue))  {
+						val = Boolean.FALSE; 
+					}else   {
+						val = cellValue; 
+					}
+				}
+				else if(ColumnType.Integer.equals(targetType)){
+					val = new Integer(cellValue);
+				}
+				else if(ColumnType.Number.equals(targetType)){
+					val = new Double(cellValue);
+				}
+				else{
+					val = cellValue;
 				}
 			}
-			else if(ColumnType.Integer.equals(targetType)){
-				val = new Integer(cellValue);
-			}
-			else if(ColumnType.Number.equals(targetType)){
-				val = new Double(cellValue);
-			}
-			else{
-				val = cellValue;
-			}
-		}
-		else if (Cell.CELL_TYPE_FORMULA == cellType) {
-			// 根据数据表数据类型来得到公式的值，读出公式的结果
-			boolean readfs = true;
-			if (sourceType == null) {
-				readfs = false;
-			}
-			else if (ColumnType.Text==sourceType || ColumnType.LongText==sourceType) {
-				val = getRichStringCellValue(cell);
-			}
-			else if (ColumnType.Boolean==sourceType) {
-				val = cell.getBooleanCellValue();
-			}
-			else {
-				boolean isDate=false;
-				try {
-					isDate=HSSFDateUtil.isCellDateFormatted(cell);
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					log.error("公式数据解析问题:sheet="+cell.getSheet().getSheetName()+",列="+fieldName+",行="+cell.getRowIndex()+"公式="+cell.getCellFormula());
-					return null;
-				}
-				
-				if (isDate) {  
-			
-					// 兼容处理 2020-11-09 zhangyb 当公式为Date的时候会返回匪夷所思的结果： 比如：2020/11/09 会返回 44144
-	                Date date = cell.getDateCellValue();
-	                val = formatDate(date);//DateFormatUtils.format(date, "yyyy-MM-dd");
-				}else {
+			else if (Cell.CELL_TYPE_FORMULA == cellType) {
+				// 根据数据表数据类型来得到公式的值，读出公式的结果
+				boolean readfs = true;
+				if (sourceType == null) {
 					readfs = false;
 				}
-				
-            }
-			
-			
-			if(!readfs){
-				try {  
-					val = String.valueOf(cell.getStringCellValue());  
-				} catch (IllegalStateException e) {  
+				else if (ColumnType.Text==sourceType || ColumnType.LongText==sourceType) {
+					val = getRichStringCellValue(cell);
+				}
+				else if (ColumnType.Boolean==sourceType) {
+					val = cell.getBooleanCellValue();
+				}
+				else {
+					boolean isDate=false;
 					try {
-						val = cell.getNumericCellValue();
-					} catch (Exception e1) {
-						val=null;
-					}  
-				} 
+						isDate=HSSFDateUtil.isCellDateFormatted(cell);
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						log.error("公式数据解析问题:sheet="+cell.getSheet().getSheetName()+",列="+fieldName+",行="+cell.getRowIndex()+"公式="+cell.getCellFormula());
+						return null;
+					}
+					
+					if (isDate) {  
+				
+						// 兼容处理 2020-11-09 zhangyb 当公式为Date的时候会返回匪夷所思的结果： 比如：2020/11/09 会返回 44144
+		                Date date = cell.getDateCellValue();
+		                val = formatDate(date);//DateFormatUtils.format(date, "yyyy-MM-dd");
+					}else {
+						readfs = false;
+					}
+					
+	            }
+				
+				
+				if(!readfs){
+					try {  
+						val = String.valueOf(cell.getStringCellValue());  
+					} catch (IllegalStateException e) {  
+						try {
+							val = cell.getNumericCellValue();
+						} catch (Exception e1) {
+							val=null;
+						}  
+					} 
+				}
+				flag = true;
 			}
-			flag = true;
-		}
-		else if (Cell.CELL_TYPE_BOOLEAN == cellType) {// 读出布尔值
-			val = Boolean.valueOf(cell.getBooleanCellValue());
-			flag = true;
-		}
-		else if (cellType != Cell.CELL_TYPE_BLANK && cellType != Cell.CELL_TYPE_ERROR) {
-			val = getRichStringCellValue(cell);//cell.getRichStringCellValue().getString().trim();
-			flag = true;
-		}
-		else {
-			flag = false;
+			else if (Cell.CELL_TYPE_BOOLEAN == cellType) {// 读出布尔值
+				val = Boolean.valueOf(cell.getBooleanCellValue());
+				flag = true;
+			}
+			else if (cellType != Cell.CELL_TYPE_BLANK && cellType != Cell.CELL_TYPE_ERROR) {
+				val = getRichStringCellValue(cell);//cell.getRichStringCellValue().getString().trim();
+				flag = true;
+			}
+			else {
+				flag = false;
+			}
+			
+			Object rs = null;
+			if (flag){ 
+				boolean isStringType = (ColumnType.Text.equals(sourceType) || ColumnType.LongText.equals(sourceType));
+				if(isStringType && val instanceof Number){
+					//处理整数浮点数变成字符串时后面有.0问题
+					val= number2String((Number)val);
+				}
+				rs =  val ;
+			}
+			return rs;
+		}catch (Exception e) {
+			String sheetName=cell.getSheet().getSheetName();
+			int rowIndex=cell.getRowIndex()+1;
+			int colIndex=cell.getColumnIndex()+1;
+			// TODO: handle exception
+			throw new BusinessException("导入模版格式数据有误，请检查，问题数据:"+sheetName+"中,第"+rowIndex+"行，第"+colIndex+"列",e);
 		}
 		
-		Object rs = null;
-		if (flag){ 
-			boolean isStringType = (ColumnType.Text.equals(sourceType) || ColumnType.LongText.equals(sourceType));
-			if(isStringType && val instanceof Number){
-				//处理整数浮点数变成字符串时后面有.0问题
-				val= number2String((Number)val);
-			}
-			rs =  val ;
-		}
-		return rs;
 	}
 	private ColumnType getColumnType(IDataSetMetaData meta,String columnName) {
 		try {
